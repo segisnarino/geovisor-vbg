@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Actualizar datos · Geovisor SEGIS</title>
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,800&family=Public+Sans:wght@400;600;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+:root{--bg:#F4F2F7;--surface:#FFFFFF;--ink:#20192E;--muted:#5F5872;--line:#E2DCEA;--violeta:#4B2A85;--magenta:#D93A68;--ok:#1F7A3A;--sunk:#F1EEF6;--band:#2F1B5E}
+@media (prefers-color-scheme:dark){:root{--bg:#14101C;--surface:#1E1829;--ink:#EEEAF5;--muted:#A79FBA;--line:#352C45;--violeta:#B79BF0;--magenta:#FF7A9C;--ok:#6FD08C;--sunk:#262031;--band:#1A1230}}
+*,*::before,*::after{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:15px/1.5 "Public Sans",Arial,sans-serif}
+header{background:var(--band);color:#fff;padding:22px 16px}
+header .w,main{max-width:980px;margin:0 auto}
+header h1{margin:0;font:800 28px/1.15 "Bricolage Grotesque",Arial,sans-serif}
+header p{margin:6px 0 0;opacity:.85}
+main{padding:22px 16px 60px;display:flex;flex-direction:column;gap:18px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:20px;display:flex;flex-direction:column;gap:12px}
+h2{margin:0;font:800 21px/1.2 "Bricolage Grotesque",Arial,sans-serif}
+.k{font:600 12px/1 "Public Sans";letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+ol{margin:0;padding-left:20px}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:9px 16px;cursor:pointer;font:600 14px "Public Sans",Arial;text-decoration:none}
+.btn.solid{background:var(--violeta);border-color:var(--violeta);color:#fff}
+.btn.hot{background:var(--magenta);border-color:var(--magenta);color:#fff}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+input[type=file]{display:none}
+.status{font-size:14px}
+.status:empty{display:none}
+.status ul{margin:4px 0 0 18px;color:var(--muted);font-size:13px}
+.warn{color:var(--magenta);font-weight:700}
+.okk{color:var(--ok);font-weight:700}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:right}
+th:first-child,td:first-child{text-align:left}
+th{background:var(--sunk);font-weight:700}
+.tbl{overflow-x:auto}
+.src{font-size:13px;color:var(--muted)}
+code{font:500 13px "IBM Plex Mono",monospace;background:var(--sunk);padding:1px 5px;border-radius:4px}
+</style>
+</head>
+<body>
+<header><div class="w"><div class="k" style="color:#E9E2F7">Geovisor SEGIS · Administración</div><h1>Actualizar los datos del geovisor</h1><p>Convierte las matrices de Excel en los archivos que publica el geovisor. Todo ocurre en este computador: los archivos no se envían a ningún servidor.</p></div></header>
+<main>
+  <section class="card">
+    <span class="k">Cómo funciona</span>
+    <ol>
+      <li>Revise la matriz que le envía la entidad (la columna VALIDACION debe decir «OK»).</li>
+      <li>Conviértala aquí: la herramienta la valida y genera el archivo para publicar.</li>
+      <li>Suba el archivo descargado a la carpeta <code>datos/</code> del repositorio en GitHub, reemplazando el anterior. En uno o dos minutos el geovisor queda actualizado para todos.</li>
+    </ol>
+    <div class="status" id="baseStatus"></div>
+  </section>
+
+  <section class="card">
+    <span class="k">1 · Dupla Violeta</span>
+    <h2>Actualizar atenciones de la Dupla Violeta</h2>
+    <p class="src">Use la matriz estandarizada (<code>MATRIZ_DUPLA_AAAA.xlsx</code>). Los meses que trae la matriz reemplazan los mismos meses publicados; los demás meses no cambian. Puede elegir varios archivos a la vez.</p>
+    <div class="row">
+      <label class="btn solid" for="fDupla">Elegir matriz de la Dupla (.xlsx)</label><input type="file" id="fDupla" accept=".xlsx" multiple>
+      <label class="btn" for="fDuplaBase" title="Solo si abrió esta página desde el computador y no carga sola">Elegir dupla.json actual</label><input type="file" id="fDuplaBase" accept=".json">
+      <button class="btn hot" type="button" id="bDupla" disabled>Descargar dupla.json</button>
+    </div>
+    <div class="status" id="sDupla"></div>
+  </section>
+
+  <section class="card">
+    <span class="k">2 · Policía Nacional</span>
+    <h2>Actualizar casos de la Policía</h2>
+    <p class="src">Use la matriz completa que envía la Policía (un archivo con una hoja por delito: HOMICIDIOS, FEMINICIDIOS, LESIONES PERSONALES, DELITOS SEXUALES, VIOLENCIA INTRAFAMILIAR, HURTO A PERSONAS, HURTO MOTOCICLETAS, HURTO AUTOMOTORES, EXTORSIONES, SECUESTROS, AMENAZAS). Se publica solo el resumen por municipio, año, mes, día, franja, curso de vida, sitio, arma y localidad, nunca la matriz con las filas.</p>
+    <div class="row">
+      <label class="btn solid" for="fPol">Elegir matriz de la Policía (.xlsx)</label><input type="file" id="fPol" accept=".xlsx">
+      <button class="btn hot" type="button" id="bPol" disabled>Descargar policia.json</button>
+    </div>
+    <div class="status" id="sPol"></div>
+  </section>
+
+  <section class="card">
+    <span class="k">3 · Otros archivos</span>
+    <h2>Capas, instituciones y configuración</h2>
+    <ul>
+      <li><b>Capas y presencia institucional</b>: edítelas en QGIS (archivos de <code>datos/capas/</code> e <code>instituciones.geojson</code>) y expórtelas como GeoJSON con el mismo nombre y los mismos campos. Vea la guía.</li>
+      <li><b>Enlace del formulario y fecha de actualización</b>: edite <code>datos/config.json</code> directamente en GitHub.</li>
+    </ul>
+  </section>
+</main>
+<script>
+"use strict";
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"})[c]);
+const fmt=n=>Number(n).toLocaleString("es-CO");
+const MESES=["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
+const mesesTxt=ms=>{ const out=[]; let i=0; while(i<ms.length){ let j=i; while(j+1<ms.length&&ms[j+1]===ms[j]+1) j++; out.push(j-i>=2?`${MESES[ms[i]-1]} a ${MESES[ms[j]-1]}`:ms.slice(i,j+1).map(m=>MESES[m-1]).join(", ")); i=j+1; } return out.join(", "); };
+const nrm=s=>String(s??"").normalize("NFD").replace(/[̀-ͯ]/g,"").toLowerCase().replace(/[^a-z0-9]+/g," ").trim();
+
+/* ---------- lector .xlsx (sin librerías) ---------- */
+async function unzip(buf){
+  const dv=new DataView(buf), u8=new Uint8Array(buf); let eocd=-1;
+  for(let i=buf.byteLength-22;i>=Math.max(0,buf.byteLength-70000);i--) if(dv.getUint32(i,true)===0x06054b50){ eocd=i; break; }
+  if(eocd<0) throw new Error("el archivo no es un Excel (.xlsx) válido");
+  const n=dv.getUint16(eocd+10,true); let p=dv.getUint32(eocd+16,true); const files={};
+  for(let k=0;k<n;k++){ const method=dv.getUint16(p+10,true), csize=dv.getUint32(p+20,true), nl=dv.getUint16(p+28,true), el=dv.getUint16(p+30,true), cl=dv.getUint16(p+32,true), off=dv.getUint32(p+42,true);
+    const name=new TextDecoder().decode(u8.subarray(p+46,p+46+nl)); p+=46+nl+el+cl;
+    const lnl=dv.getUint16(off+26,true), lel=dv.getUint16(off+28,true); files[name]={method,data:u8.subarray(off+30+lnl+lel,off+30+lnl+lel+csize)}; }
+  const get=async name=>{ const f=files[name]; if(!f) return null; if(f.method===0) return new TextDecoder().decode(f.data);
+    const out=await new Response(new Blob([f.data]).stream().pipeThrough(new DecompressionStream("deflate-raw"))).arrayBuffer(); return new TextDecoder().decode(out); };
+  return {names:Object.keys(files),get};
+}
+const ENT={amp:"&",lt:"<",gt:">",quot:'"',apos:"'"};
+const unent=s=>s.replace(/&(#x[0-9a-f]+|#\d+|\w+);/gi,(m,e)=>e[0]==="#"?String.fromCodePoint(e[1]==="x"||e[1]==="X"?parseInt(e.slice(2),16):+e.slice(1)):(ENT[e]??m));
+async function readXlsx(buf){
+  const z=await unzip(buf); const find=n=>z.names.find(x=>x.toLowerCase()===n.toLowerCase());
+  const wb=await z.get(find("xl/workbook.xml")||""); if(!wb) throw new Error("no es un archivo de Excel (.xlsx)");
+  const relx=await z.get(find("xl/_rels/workbook.xml.rels")||"")||"";
+  const rels={}; for(const m of relx.matchAll(/<Relationship\b[^>]*>/g)){ const id=(m[0].match(/\bId="([^"]+)"/)||[])[1], t=(m[0].match(/\bTarget="([^"]+)"/)||[])[1]; if(id) rels[id]=t; }
+  const sheets=[...wb.matchAll(/<sheet\b[^>]*>/g)].map(m=>({name:unent((m[0].match(/\bname="([^"]*)"/)||[])[1]||""),target:rels[(m[0].match(/\br:id="([^"]+)"/)||[])[1]]}));
+  const ssx=await z.get(find("xl/sharedStrings.xml")||"")||"";
+  const ss=[...ssx.matchAll(/<si>([\s\S]*?)<\/si>/g)].map(m=>[...m[1].matchAll(/<t\b[^>]*>([\s\S]*?)<\/t>/g)].map(t=>unent(t[1])).join(""));
+  const colIdx=ref=>{ let n=0; for(const ch of ref) { const c=ch.charCodeAt(0); if(c<65||c>90) break; n=n*26+c-64; } return n-1; };
+  async function rowsOf(sh){
+    let t=String(sh.target||"").replace(/^\/?xl\//,"").replace(/^\//,""); const x=await z.get(find("xl/"+t)||"");
+    if(!x) return [];
+    const grid=[]; let ri=-1;
+    for(const rm of x.matchAll(/<row\b([^>]*)>([\s\S]*?)<\/row>|<row\b([^>]*)\/>/g)){
+      const ra=(rm[1]||rm[3]||"").match(/\br="(\d+)"/); ri=ra?+ra[1]-1:ri+1; const row=[]; let ci=-1;
+      if(rm[2]) for(const cm of rm[2].matchAll(/<c\b([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g)){
+        const at=cm[1], r=(at.match(/\br="([A-Z]+)\d+"/)||[])[1]; ci=r?colIdx(r):ci+1; const ty=(at.match(/\bt="(\w+)"/)||[])[1]; const inner=cm[2]||"";
+        const v=(inner.match(/<v>([\s\S]*?)<\/v>/)||[])[1]; let val="";
+        if(ty==="s") val=v!=null?(ss[+v]??""):""; else if(ty==="inlineStr") val=[...inner.matchAll(/<t\b[^>]*>([\s\S]*?)<\/t>/g)].map(q=>unent(q[1])).join(""); else if(ty==="b") val=v==="1"; else if(ty==="str"||ty==="e") val=v!=null?unent(v):""; else val=v!=null?(isNaN(+v)?unent(v):+v):"";
+        row[ci]=val; }
+      grid[ri]=row; }
+    const hdr=(grid[0]||[]).map(h=>String(h??"").trim()), out=[];
+    for(let i=1;i<grid.length;i++){ const g=grid[i]; if(!g) continue; const o={}; let any=false; hdr.forEach((h,j)=>{ if(h){ o[h]=g[j]??""; if(String(o[h]).trim()!=="") any=true; } }); if(any) out.push(o); }
+    return out;
+  }
+  return {sheets,rowsOf};
+}
+function save(name,obj){ const b=new Blob([JSON.stringify(obj)],{type:"application/json"}), u=URL.createObjectURL(b), a=document.createElement("a"); a.href=u; a.download=name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(u),4000); }
+const serialDate=v=>{ const d=new Date(Math.round((v-25569)*864e5)); return new Date(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate()); };
+function toDate(v){ if(v instanceof Date&&!isNaN(v)) return v; if(typeof v==="number"&&v>1) return serialDate(v);
+  const s=String(v||"").trim(); let m=s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})/); if(m) return new Date(+m[3],+m[2]-1,+m[1]);
+  m=s.match(/^(\d{4})-(\d{2})-(\d{2})/); if(m) return new Date(+m[1],+m[2]-1,+m[3]); return null; }
+
+/* ---------- datos base publicados ---------- */
+let MUN=null, DUP=null;
+async function getJSON(p){ const r=await fetch(p,{cache:"no-cache"}); if(!r.ok) throw new Error(p); return r.json(); }
+(async()=>{
+  const st=$("#baseStatus");
+  try{ const fc=await getJSON("datos/municipios.geojson"); MUN=fc.features.map(f=>({code:String(f.properties.cod_dane),name:f.properties.municipio,sub:f.properties.subregion}));
+    try{ DUP=await getJSON("datos/dupla.json"); }catch(e){}
+    st.innerHTML=`<span class="okk">Conectado a los datos publicados del geovisor.</span> ${DUP?`Dupla Violeta: ${fmt(DUP.r.length)} atenciones publicadas.`:""}`;
+  }catch(e){ MUN=MUN_FALLBACK; st.innerHTML=`<span class="warn">Esta página se abrió desde el computador.</span> Para la Dupla, elija también el archivo <code>dupla.json</code> actual (botón «Elegir dupla.json actual»).`; }
+})();
+
+/* ================= DUPLA ================= */
+let DUP_OUT=null;
+const yes=v=>/^(si|s|x|1|true)$/.test(nrm(v));
+const ALIAS={"hogar o vivienda":"vivienda","hotel bar o discoteca":"bar discoteca u hotel","lugar de trabajo o institucion":"lugar de trabajo","zona rural":"zona rural finca o campo","familiar":"otro familiar","conocido":"conocido o vecino"};
+function idxOf(list,v,fb){ let k=nrm(v); if(ALIAS[k]&&!list.some(x=>nrm(x)===k)) k=ALIAS[k]; if(!k) return fb; let i=list.findIndex(x=>nrm(x)===k); if(i<0&&/^(no refiere|no reporta|sin dato)$/.test(k)) i=list.findIndex(x=>nrm(x)==="no registra"); return i<0?fb:i; }
+const cursoOf=e=>e===""||e==null||isNaN(+e)?6:(+e<=5?0:+e<=11?1:+e<=17?2:+e<=28?3:+e<=59?4:5);
+function parseDupla(rows,fileName,D){
+  const recs=[],errs=[],warns=[]; const srcName="carga:"+fileName; let srcI=D.src.indexOf(srcName); if(srcI<0){ D.src.push(srcName); srcI=D.src.length-1; }
+  const byCode=Object.fromEntries(MUN.map((m,i)=>[m.code,i])), byName=Object.fromEntries(MUN.map((m,i)=>[nrm(m.name),i])); byName["tumaco"]=byCode["52835"];
+  const NR=l=>l.length-1, fm=String(fileName).match(/(20\d{2})[_\-. ]?(0?[1-9]|1[0-2])(?!\d)/), fileYM=fm?[+fm[1],+fm[2]]:null;
+  const codes=new Set();
+  rows.forEach((o0,i)=>{ const o={}; for(const k in o0) o[nrm(k).replace(/ /g,"_")]=o0[k]; const g=k=>o[k]??""; const fila=i+2;
+    if(!Object.keys(o).some(k=>!["validacion","codigo_dane","subregion","codigo_caso","anio"].includes(k)&&String(o[k]??"").trim()!=="")) return;
+    const f=toDate(g("fecha_atencion")); let mi=byCode[String(g("codigo_dane")).trim()]; if(mi==null) mi=byName[nrm(g("municipio"))];
+    let y0,m0,dow=-1; if(f){ y0=f.getFullYear(); m0=f.getMonth()+1; dow=(f.getDay()+6)%7; } else if(fileYM){ [y0,m0]=fileYM; warns.push(`Fila ${fila}: sin fecha; se asigna a ${MESES[m0-1]} de ${y0} por el nombre del archivo`); } else { errs.push(`Fila ${fila}: sin fecha de atención`); return; }
+    if(mi==null){ errs.push(`Fila ${fila}: municipio «${g("municipio")}» no reconocido`); return; }
+    const cc=String(g("codigo_caso")).trim(); if(cc){ if(codes.has(cc)) warns.push(`Fila ${fila}: código de caso repetido ${cc}`); codes.add(cc); }
+    const v=String(g("validacion")).trim(); if(v&&v!=="OK") warns.push(`Fila ${fila}: la matriz dice «${v}»`);
+    const bits=(yes(g("v_psicologica"))?1:0)|(yes(g("v_fisica"))?2:0)|(yes(g("v_sexual"))?4:0)|(yes(g("v_economica"))?8:0)|(yes(g("intento_feminicidio"))?16:0)|(yes(g("feminicidio"))?32:0);
+    const og=nrm(g("orientacion_sexual")), gen=nrm(g("identidad_genero")), lg=/lesbiana|gay|homosexual|bisexual|otra/.test(og)||/trans|no binaria/.test(gen);
+    const pb=(yes(g("victima_conflicto"))?1:0)|(yes(g("lideresa"))?2:0)|(yes(g("migrante"))?4:0)|(yes(g("discapacidad"))?8:0)|(lg?16:0);
+    const rut=(yes(g("rem_comisaria"))?1:0)|(yes(g("rem_fiscalia"))?2:0)|(yes(g("rem_salud"))?4:0)|(yes(g("rem_policia"))?8:0)|(yes(g("rem_defensoria"))?16:0);
+    let corr=-1; if(MUN[mi].code==="52001") for(const c of ["corregimiento","vereda","barrio_vereda_corregimiento"]){ const k=nrm(g(c)); if(k){ corr=D.corr.findIndex(x=>nrm(x)===k); if(corr>=0) break; } }
+    recs.push([mi,y0,m0,dow,cursoOf(g("edad")),bits,idxOf(D.lugar,g("lugar_hechos"),NR(D.lugar)),idxOf(D.agresor,g("agresor"),NR(D.agresor)),idxOf(D.etnia,g("etnia"),NR(D.etnia)),pb,corr,srcI,rut]);
+  });
+  return {recs,errs,warns};
+}
+async function runDupla(files){
+  const st=$("#sDupla"); $("#bDupla").disabled=true;
+  if(!DUP){ st.innerHTML=`<span class="warn">Falta el archivo dupla.json actual.</span> Elíjalo con el botón «Elegir dupla.json actual» (está en la carpeta datos/ del repositorio).`; return; }
+  st.textContent="Leyendo…";
+  try{
+    const D=JSON.parse(JSON.stringify(DUP)); let all=[],errs=[],warns=[],names=[];
+    for(const f of files){ const X=await readXlsx(await f.arrayBuffer()); const sh=X.sheets.find(s=>nrm(s.name)==="matriz")||X.sheets[0]; const rows=await X.rowsOf(sh);
+      if(!rows.length||!Object.keys(rows[0]).some(k=>nrm(k)==="fecha atencion")){ errs.push(`${f.name}: no tiene el formato de la matriz estandarizada (hoja MATRIZ)`); continue; }
+      const r=parseDupla(rows,f.name,D); all=all.concat(r.recs); errs=errs.concat(r.errs.map(e=>f.name+" · "+e)); warns=warns.concat(r.warns.map(e=>f.name+" · "+e)); names.push(f.name); }
+    if(!all.length){ st.innerHTML=`<span class="warn">No se encontraron atenciones para publicar.</span>`+(errs.length?`<ul>${errs.slice(0,10).map(e=>`<li>${esc(e)}</li>`).join("")}</ul>`:""); return; }
+    const months=new Set(all.map(x=>x[1]*100+x[2]));
+    const before=D.r.length, kept=D.r.filter(x=>!(x[2]>0&&months.has(x[1]*100+x[2])));
+    D.r=kept.concat(all);
+    const cov={}; for(const x of D.r){ const y=String(x[1]); cov[y]=cov[y]||{m:new Set(),sin:false}; if(x[2]>0) cov[y].m.add(x[2]); else cov[y].sin=true; }
+    D.cobertura={}; for(const y of Object.keys(cov).sort()){ const ms=[...cov[y].m].sort((a,b)=>a-b); D.cobertura[y]=(ms.length?mesesTxt(ms):"sin mes")+(ms.length&&cov[y].sin?", más atenciones sin mes":""); }
+    D.n=D.r.length; D.actualizado=new Date().toISOString().slice(0,10);
+    DUP_OUT=D; $("#bDupla").disabled=false;
+    const per=[...months].sort().map(k=>{ const rs=all.filter(x=>x[1]*100+x[2]===k), t=b=>rs.filter(x=>x[5]&b).length; return `<tr><td>${MESES[k%100-1]} ${Math.floor(k/100)}</td><td>${rs.length}</td><td>${t(1)}</td><td>${t(2)}</td><td>${t(4)}</td><td>${t(16)}</td><td>${new Set(rs.map(x=>x[0])).size}</td></tr>`; }).join("");
+    st.innerHTML=`<p class="okk">Listo para publicar: ${fmt(all.length)} atenciones de ${names.map(esc).join(", ")}.</p>
+      <div class="tbl"><table><tr><th>Mes</th><th>Atenciones</th><th>Psicológica</th><th>Física</th><th>Sexual</th><th>Intento de feminicidio</th><th>Municipios</th></tr>${per}</table></div>
+      <p>Total publicado después de la actualización: <b>${fmt(D.r.length)}</b> atenciones (antes ${fmt(before)}; se reemplazaron ${fmt(before-kept.length)} de los mismos meses).</p>`+
+      (errs.length?`<p class="warn">${errs.length} ${errs.length===1?"fila no se incluyó":"filas no se incluyeron"}:</p><ul>${errs.slice(0,12).map(e=>`<li>${esc(e)}</li>`).join("")}${errs.length>12?`<li>y ${errs.length-12} más</li>`:""}</ul>`:"")+
+      (warns.length?`<p class="warn">${warns.length} ${warns.length===1?"advertencia":"advertencias"} (se incluyeron; conviene corregir la matriz):</p><ul>${warns.slice(0,12).map(e=>`<li>${esc(e)}</li>`).join("")}${warns.length>12?`<li>y ${warns.length-12} más</li>`:""}</ul>`:"")+
+      `<p>Descargue <code>dupla.json</code> y súbalo a <code>datos/</code> en GitHub.</p>`;
+  }catch(e){ st.innerHTML=`<span class="warn">No se pudo leer:</span> ${esc(e.message||e)}`; }
+}
+$("#fDupla").onchange=e=>{ const fs=[...e.target.files]; if(fs.length) runDupla(fs); e.target.value=""; };
+$("#fDuplaBase").onchange=async e=>{ const f=e.target.files[0]; if(!f) return; try{ DUP=JSON.parse(await f.text()); $("#sDupla").innerHTML=`<span class="okk">dupla.json actual cargado: ${fmt(DUP.r.length)} atenciones.</span> Ahora elija la matriz.`; }catch(err){ $("#sDupla").innerHTML=`<span class="warn">Ese archivo no es un dupla.json válido.</span>`; } e.target.value=""; };
+$("#bDupla").onclick=()=>{ if(DUP_OUT) save("dupla.json",DUP_OUT); };
+
+/* ================= POLICÍA ================= */
+let POL_OUT=null;
+const KEYS={"homicidios":"homicidio","feminicidios":"feminicidio","lesiones personales":"lesiones","delitos sexuales":"sexual","violencia intrafamiliar":"vif","hurto a personas":"hurto_personas","hurto motocicletas":"hurto_motos","hurto automotores":"hurto_autos","extorsiones":"extorsion","secuestros":"secuestro","amenazas":"amenazas"};
+const MALIAS={"magui payan":"magui","cuaspud":"cuaspud carlosama","tumaco":"san andres de tumaco"};
+const nlet=s=>String(s??"").normalize("NFD").replace(/[̀-ͯ]/g,"").toLowerCase().replace(/\(ct\)/g,"").replace(/[^a-z ]/g," ").split(/\s+/).filter(Boolean).join(" ");
+const NICE={"vias publicas":"Vías públicas","casas de habitacion":"Casas de habitación","dentro de la vivienda":"Dentro de la vivienda","establecimiento educativo":"Establecimiento educativo","establecimiento de salud":"Establecimiento de salud","hoteles, residencias, y similares":"Hoteles y residencias","entidad publica / estatal":"Entidad pública o estatal","establecimiento publico":"Establecimiento público","fincas y similares":"Fincas","establecimiento de comercio":"Establecimiento de comercio","bares, cantinas y similares":"Bares y cantinas","carceles":"Cárceles","plazas de mercado":"Plazas de mercado","lugar de trabajo":"Lugar de trabajo","callejon":"Callejón","frente a residencias - via publica":"Frente a residencias","frente a almacen - via publica":"Frente a almacén","sobre anden - via publica":"Sobre andén","terminal de transportes":"Terminal de transportes","rios":"Ríos","resguardo indígena":"Resguardo indígena","otro":"Otro","no registra":"No registra","arma de fuego":"Arma de fuego","arma blanca / cortopunzante":"Arma blanca o cortopunzante","contundentes":"Contundentes","sin empleo de armas":"Sin empleo de armas","escopolamina":"Escopolamina","llamada telefonica":"Llamada telefónica","artefacto explosivo/carga dinamita":"Artefacto explosivo","factor de oportunidad":"Factor de oportunidad","violacion de cerradura":"Violación de cerradura","engaño":"Engaño","ciber extorsion":"Ciberextorsión","redes sociales":"Redes sociales","carta extorsiva":"Carta extorsiva","clasica":"Clásica","carcelaria":"Carcelaria"};
+const nice=s=>{ s=String(s??"").trim().toLowerCase(); if(["nan","","none"].includes(s)) return "No registra"; return NICE[s]||(s.charAt(0).toUpperCase()+s.slice(1)); };
+const DOW={lunes:0,martes:1,miercoles:2,"miércoles":2,jueves:3,viernes:4,sabado:5,"sábado":5,domingo:6};
+const cursoP=e=>{ const v=parseFloat(e); if(!(v>0)||v>110) return 6; return v<=5?0:v<=11?1:v<=17?2:v<=28?3:v<=59?4:5; };
+/* localidades (campo BARRIO) */
+const PASTO_CORR=["buesaquillo","cabrera","catambuco","el encano","el socorro","genoy","gualmatan","jamondino","jongovito","la caldera","la laguna","mapachico","mocondino","morasurco","obonuco","san fernando","santa barbara"];
+const GENERIC=/^(no registra|sin dato|nan|none|na|n a|0|via|vias|carretera|panamericana|via panamericana|km|kilometro|rural|urbano|sector rural|zona rural|desconocido|no aplica)$/;
+const PREF=/^(barrio|brr|br|b|urbanizacion|urb|conjunto|conj|sector|asentamiento|vereda|vda|vrda|corregimiento|correg|corr|cto|inspeccion|caserio|resguardo)\s+(de\s+|del\s+|la\s+(?=\w))?/;
+const NL=s=>String(s??"").normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^\x00-\x7f]/g,"").toLowerCase().replace(/[^a-z0-9 ]/g," ").split(/\s+/).filter(Boolean).join(" ");
+function classify(raw,code){
+  let s=NL(raw);
+  if(!s||GENERIC.test(s)||s.startsWith("via ")||s.startsWith("carretera")||s.startsWith("km ")||s.includes("kilometro")) return null;
+  let t="barrio";
+  if(/^(vereda|vda|vrda)\b/.test(s)) t="vereda";
+  else if(/^(corregimiento|correg|corr|cto|inspeccion)\b/.test(s)) t="corregimiento";
+  else if(code==="52001"){ for(const c of PASTO_CORR){ if(s===c||(s.endsWith(" "+c)&&s.length<=c.length+15)){ t="corregimiento"; s=c; break; } } }
+  if(t==="barrio"&&/^(avenida|av|calle|cll|carrera|cra|kra|diagonal|transversal|parque|terminal|estadio|puente|glorieta|autopista|anillo vial)\b/.test(s)) return null;
+  if(t==="barrio"&&code==="52001"){ for(const c of PASTO_CORR){ if(new RegExp("\\b"+c+"\\b").test(s)){ t="corregimiento"; s=c; break; } } }
+  const key=s.replace(PREF,"").trim(); if(key.length<2) return null; return [t,key];
+}
+function horaOf(v){ if(typeof v==="number"){ const fr=v%1; const mins=Math.round(fr*1440); const h=Math.floor(mins/60)%24; return (h===0||h===12)?-1:h; } return -1; }
+async function runPol(file){
+  const st=$("#sPol"); $("#bPol").disabled=true; st.textContent="Leyendo la matriz de la Policía (puede tardar unos segundos)…";
+  if(!MUN){ st.innerHTML=`<span class="warn">No se cargaron los municipios.</span>`; return; }
+  try{
+    const X=await readXlsx(await file.arrayBuffer());
+    const codeBy={}; MUN.forEach(m=>codeBy[nlet(m.name)]=m.code); for(const a in MALIAS) codeBy[a]=codeBy[MALIAS[a]];
+    const codeOf=n=>{ const k=nlet(n); return codeBy[MALIAS[k]||k]||null; };
+    const MIDX=Object.fromEntries(MUN.map((m,i)=>[m.code,i]));
+    const police={}, prof={}, locRaw={}, report=[], unk={}, yearsAll=new Set();
+    for(const sh of X.sheets){
+      const key=KEYS[nrm(sh.name)]; if(!key){ report.push({hoja:sh.name,omitida:true}); continue; }
+      st.textContent=`Procesando ${sh.name}…`; await new Promise(r=>setTimeout(r,0));
+      const rows0=await X.rowsOf(sh);
+      const rows=[]; let tot=0, excl=0;
+      for(const o of rows0){ const mun=o["MUNICIPIO"]; if(mun===""||mun==null) continue;
+        let n=parseFloat(o["TOTAL CASOS"]); if(!isFinite(n)) n=1; n=Math.trunc(n); tot+=n;
+        const code=codeOf(mun); if(!code){ excl+=n; unk[mun]=(unk[mun]||0)+n; continue; }
+        let yr=String(o["AÑO"]??"").slice(0,4); const f=toDate(o["FECHA HECHO"]); if(!/^\d{4}$/.test(yr)&&f) yr=String(f.getFullYear()); if(!/^\d{4}$/.test(yr)) continue;
+        yearsAll.add(yr); rows.push({o,n,code,yr,f}); }
+      const m={}, zona={};
+      for(const r of rows){ (m[r.code]=m[r.code]||{}); m[r.code][r.yr]=(m[r.code][r.yr]||0)+r.n;
+        const z=String(r.o["ZONA"]??"").toLowerCase().trim()||"nan"; (zona[z]=zona[z]||{}); zona[z][r.yr]=(zona[z][r.yr]||0)+r.n; }
+      police[key]={m,zona};
+      // perfil
+      const sitT={}, armT={}; for(const r of rows){ r.sit=nice(r.o["CLASE DE SITIO"]); r.arm=nice(r.o["TIPO DE ARMA"]); sitT[r.sit]=(sitT[r.sit]||0)+r.n; armT[r.arm]=(armT[r.arm]||0)+r.n; }
+      const topmap=T=>{ const lst=Object.keys(T).sort((a,b)=>T[b]-T[a]); const keep=lst.filter(x=>x!=="Otro"&&x!=="No registra").slice(0,9); const mp={}; for(const x of lst) mp[x]=keep.includes(x)?keep.indexOf(x):keep.length; return [keep.concat(["Otros / no registra"]),mp]; };
+      const [sl,sm]=topmap(sitT), [al,am]=topmap(armT); const x={};
+      for(const r of rows){ const e=((x[r.code]=x[r.code]||{})[r.yr]=x[r.code][r.yr]||{z:[0,0,0],m:Array(12).fill(0),c:Array(7).fill(0),dh:{},h0:0,d:Array(7).fill(0),s:{},a:{}}); const n=r.n;
+        const zz=String(r.o["ZONA"]??"").toLowerCase().trim(); e.z[zz==="urbana"?0:zz==="rural"?1:2]+=n;
+        if(r.f) e.m[r.f.getMonth()]+=n; e.c[cursoP(r.o["EDAD"])]+=n;
+        let dw=DOW[String(r.o["DÍA"]??"").toLowerCase().trim()]; if(dw==null&&r.f) dw=(r.f.getDay()+6)%7;
+        if(dw!=null) e.d[dw]+=n; const h=horaOf(r.o["HORA"]); if(h<0) e.h0+=n; else if(dw!=null){ const k=String(dw*24+h); e.dh[k]=(e.dh[k]||0)+n; }
+        const si=String(sm[r.sit]), ai=String(am[r.arm]); e.s[si]=(e.s[si]||0)+n; e.a[ai]=(e.a[ai]||0)+n; }
+      prof[key]={sit:sl,arm:al,x};
+      // localidades
+      const L={}; for(const r of rows){ const c=classify(r.o["BARRIO"],r.code); if(!c) continue; const mi=String(MIDX[r.code]); ((L[mi]=L[mi]||{})[c[1]]=L[mi][c[1]]||{t:c[0],y:{}}); L[mi][c[1]].y[r.yr]=(L[mi][c[1]].y[r.yr]||0)+r.n; }
+      locRaw[key]=L;
+      report.push({hoja:sh.name,total:tot,excluidos:excl,anios:[...new Set(rows.map(r=>r.yr))].sort()});
+    }
+    const years=[...yearsAll].sort(), types=["barrio","vereda","corregimiento"], loc={types,years,x:{}};
+    for(const k in locRaw){ loc.x[k]={}; for(const mi in locRaw[k]){ loc.x[k][mi]={}; for(const nm in locRaw[k][mi]){ const e=locRaw[k][mi][nm]; loc.x[k][mi][nm]=[types.indexOf(e.t),...years.map(y=>e.y[y]||0)]; } } }
+    if(!Object.keys(police).length){ st.innerHTML=`<span class="warn">No se encontró ninguna hoja de delitos.</span> Revise que el archivo tenga las hojas con los nombres de la Policía.`; return; }
+    POL_OUT={police,prof,loc,actualizado:new Date().toISOString().slice(0,10)}; $("#bPol").disabled=false;
+    const tb=report.filter(r=>!r.omitida).map(r=>`<tr><td>${esc(r.hoja)}</td><td>${fmt(r.total)}</td><td>${fmt(r.total-r.excluidos)}</td><td>${r.excluidos?`<span class="warn">${fmt(r.excluidos)}</span>`:"0"}</td><td>${r.anios.join(", ")}</td></tr>`).join("");
+    const om=report.filter(r=>r.omitida).map(r=>r.hoja);
+    const uk=Object.entries(unk).sort((a,b)=>b[1]-a[1]);
+    st.innerHTML=`<p class="okk">Listo para publicar.</p><div class="tbl"><table><tr><th>Hoja</th><th>Casos</th><th>Ubicados en un municipio</th><th>Sin municipio reconocido</th><th>Años</th></tr>${tb}</table></div>`+
+      (om.length?`<p class="warn">Hojas no reconocidas (no se usaron): ${om.map(esc).join(", ")}</p>`:"")+
+      (uk.length?`<p class="warn">Municipios escritos de forma no reconocida:</p><ul>${uk.slice(0,12).map(([k,v])=>`<li>${esc(k)}: ${fmt(v)} casos</li>`).join("")}</ul>`:"")+
+      `<p>Descargue <code>policia.json</code> y súbalo a <code>datos/</code> en GitHub. Años publicados: ${years.join(", ")}.</p>`;
+  }catch(e){ st.innerHTML=`<span class="warn">No se pudo leer:</span> ${esc(e.message||e)}`; }
+}
+$("#fPol").onchange=e=>{ const f=e.target.files[0]; if(f) runPol(f); e.target.value=""; };
+$("#bPol").onclick=()=>{ if(POL_OUT) save("policia.json",POL_OUT); };
+const MUN_FALLBACK=[{"code": "52683", "name": "Sandoná", "sub": "Occidente"}, {"code": "52685", "name": "San Bernardo", "sub": "Río Mayo"}, {"code": "52687", "name": "San Lorenzo", "sub": "Juanambú"}, {"code": "52560", "name": "Potosí", "sub": "Obando"}, {"code": "52693", "name": "San Pablo", "sub": "Río Mayo"}, {"code": "52565", "name": "Providencia", "sub": "Los Abades"}, {"code": "52694", "name": "San Pedro de Cartago", "sub": "Juanambú"}, {"code": "52573", "name": "Puerres", "sub": "Obando"}, {"code": "52699", "name": "Santacruz", "sub": "Los Abades"}, {"code": "52585", "name": "Pupiales", "sub": "Obando"}, {"code": "52678", "name": "Samaniego", "sub": "Los Abades"}, {"code": "52207", "name": "Consacá", "sub": "Occidente"}, {"code": "52210", "name": "Contadero", "sub": "Obando"}, {"code": "52215", "name": "Córdoba", "sub": "Obando"}, {"code": "52001", "name": "Pasto", "sub": "Centro"}, {"code": "52019", "name": "Albán", "sub": "Río Mayo"}, {"code": "52022", "name": "Aldana", "sub": "Obando"}, {"code": "52224", "name": "Cuaspud Carlosama", "sub": "Obando"}, {"code": "52036", "name": "Ancuya", "sub": "Occidente"}, {"code": "52051", "name": "Arboleda", "sub": "Juanambú"}, {"code": "52083", "name": "Belén", "sub": "Río Mayo"}, {"code": "52110", "name": "Buesaco", "sub": "Juanambú"}, {"code": "52203", "name": "Colón", "sub": "Río Mayo"}, {"code": "52480", "name": "Nariño", "sub": "Centro"}, {"code": "52506", "name": "Ospina", "sub": "La Sabana"}, {"code": "52720", "name": "Sapuyes", "sub": "La Sabana"}, {"code": "52786", "name": "Taminango", "sub": "La Cordillera"}, {"code": "52788", "name": "Tangua", "sub": "Centro"}, {"code": "52240", "name": "Chachagüí", "sub": "Centro"}, {"code": "52254", "name": "El Peñol", "sub": "Guambuyaco"}, {"code": "52258", "name": "El Tablón de Gómez", "sub": "Río Mayo"}, {"code": "52838", "name": "Túquerres", "sub": "La Sabana"}, {"code": "52411", "name": "Linares", "sub": "Occidente"}, {"code": "52885", "name": "Yacuanquer", "sub": "Centro"}, {"code": "52435", "name": "Mallama", "sub": "Piedemonte Costero"}, {"code": "52378", "name": "La Cruz", "sub": "Río Mayo"}, {"code": "52381", "name": "La Florida", "sub": "Centro"}, {"code": "52260", "name": "El Tambo", "sub": "Guambuyaco"}, {"code": "52287", "name": "Funes", "sub": "Obando"}, {"code": "52317", "name": "Guachucal", "sub": "Obando"}, {"code": "52399", "name": "La Unión", "sub": "Juanambú"}, {"code": "52320", "name": "Guaitarilla", "sub": "La Sabana"}, {"code": "52405", "name": "Leiva", "sub": "La Cordillera"}, {"code": "52323", "name": "Gualmatán", "sub": "Obando"}, {"code": "52352", "name": "Iles", "sub": "Obando"}, {"code": "52354", "name": "Imués", "sub": "La Sabana"}, {"code": "52356", "name": "Ipiales", "sub": "Obando"}, {"code": "52227", "name": "Cumbal", "sub": "Obando"}, {"code": "52233", "name": "Cumbitara", "sub": "La Cordillera"}, {"code": "52256", "name": "El Rosario", "sub": "La Cordillera"}, {"code": "52385", "name": "La Llanada", "sub": "Guambuyaco"}, {"code": "52418", "name": "Los Andes", "sub": "Guambuyaco"}, {"code": "52540", "name": "Policarpa", "sub": "La Cordillera"}, {"code": "52612", "name": "Ricaurte", "sub": "Piedemonte Costero"}, {"code": "52079", "name": "Barbacoas", "sub": "Telembí"}, {"code": "52250", "name": "El Charco", "sub": "Sanquianga"}, {"code": "52390", "name": "La Tola", "sub": "Sanquianga"}, {"code": "52427", "name": "Magüí", "sub": "Telembí"}, {"code": "52473", "name": "Mosquera", "sub": "Sanquianga"}, {"code": "52490", "name": "Olaya Herrera", "sub": "Sanquianga"}, {"code": "52520", "name": "Francisco Pizarro", "sub": "Pacífico Sur"}, {"code": "52621", "name": "Roberto Payán", "sub": "Telembí"}, {"code": "52696", "name": "Santa Bárbara", "sub": "Sanquianga"}, {"code": "52835", "name": "San Andrés de Tumaco", "sub": "Pacífico Sur"}];
+</script>
+</body>
+</html>
