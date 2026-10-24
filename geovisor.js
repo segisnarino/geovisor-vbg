@@ -1048,7 +1048,7 @@ async function buildReport(mapOnly){
   if(!mapOnly){ pages.push(...perfilPages(2,total)); let n=2+np; if(hasFicha) pages.push(fichaPage(n++,total)); else { pages.push(summaryPage(n++,total)); pages.push(tablePage(n++,total)); } }
   PDFPAGES=pages;
   const slug=(ind().label).normalize("NFD").replace(/[̀-ͯ]/g,"").toLowerCase().replace(/[^a-z0-9]+/g,"-");
-  const per=(S.sel?scopeName().normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g,"-")+"-":"")+(S.year==="all"?(isDupla()?"2024-2026":"2019-2026"):S.year);
+  const per=(S.sel?scopeName().normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g,"-")+"-":"")+(S.year==="all"?(isDupla()?DUP_YEARS[0]+"-"+DUP_YEARS[DUP_YEARS.length-1]:YEARS[0]+"-"+YEARS[YEARS.length-1]):S.year);
   PDFNAME=`${mapOnly?"mapa":"reporte"}-vbg-narino-${slug}-${per}.pdf`; PNGNAME=`mapa-vbg-narino-${slug}-${per}.png`;
   $("#pmKicker").textContent=mapOnly?"Imprimir solo el mapa":"Reporte completo";
   $("#pmTitle").textContent=mapOnly?`Mapa · ${ind().label}`:`Reporte · ${ind().label} (${pages.length} páginas)`;

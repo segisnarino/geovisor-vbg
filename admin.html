@@ -70,7 +70,7 @@ code{font:500 13px "IBM Plex Mono",monospace;background:var(--sunk);padding:1px 
   <section class="card">
     <span class="k">2 · Policía Nacional</span>
     <h2>Actualizar casos de la Policía</h2>
-    <p class="src">Use la matriz completa que envía la Policía (un archivo con una hoja por delito: HOMICIDIOS, FEMINICIDIOS, LESIONES PERSONALES, DELITOS SEXUALES, VIOLENCIA INTRAFAMILIAR, HURTO A PERSONAS, HURTO MOTOCICLETAS, HURTO AUTOMOTORES, EXTORSIONES, SECUESTROS, AMENAZAS). Se publica solo el resumen por municipio, año, mes, día, franja, curso de vida, sitio, arma y localidad, nunca la matriz con las filas.</p>
+    <p class="src">Use la matriz completa que envía la Policía (un archivo con una hoja por delito: homicidios, feminicidios, lesiones personales, delitos sexuales, violencia intrafamiliar, hurto a personas, hurto motocicletas, hurto automotores, extorsión, secuestros y amenazas; se aceptan variantes del nombre con o sin tilde). La matriz nueva reemplaza por completo los datos publicados de la Policía. Se publica solo el resumen por municipio, año, mes, día, franja, curso de vida, sitio, arma y localidad, nunca la matriz con las filas.</p>
     <div class="row">
       <label class="btn solid" for="fPol">Elegir matriz de la Policía (.xlsx)</label><input type="file" id="fPol" accept=".xlsx">
       <button class="btn hot" type="button" id="bPol" disabled>Descargar policia.json</button>
@@ -215,6 +215,11 @@ $("#bDupla").onclick=()=>{ if(DUP_OUT) save("dupla.json",DUP_OUT); };
 /* ================= POLICÍA ================= */
 let POL_OUT=null;
 const KEYS={"homicidios":"homicidio","feminicidios":"feminicidio","lesiones personales":"lesiones","delitos sexuales":"sexual","violencia intrafamiliar":"vif","hurto a personas":"hurto_personas","hurto motocicletas":"hurto_motos","hurto automotores":"hurto_autos","extorsiones":"extorsion","secuestros":"secuestro","amenazas":"amenazas"};
+/* nombre de hoja -> delito, tolerante a variantes (singular/plural, con o sin tilde, "HURTO PERSONAS", "EXTORSIÓN"…) */
+const SHEET_RX=[[/feminicid/,"feminicidio"],[/homicid/,"homicidio"],[/lesion/,"lesiones"],[/sexual/,"sexual"],[/intrafamiliar|\bvif\b/,"vif"],[/hurto.*persona/,"hurto_personas"],[/hurto.*moto/,"hurto_motos"],[/hurto.*(automotor|carro|vehicul)/,"hurto_autos"],[/extorsi/,"extorsion"],[/secuestr/,"secuestro"],[/amenaza/,"amenazas"]];
+const sheetKey=n=>{ const k=nrm(n); if(KEYS[k]) return KEYS[k]; for(const [rx,v] of SHEET_RX) if(rx.test(k)) return v; return null; };
+/* encabezados normalizados: sin tildes, mayúsculas, espacios simples ("DÍA"/"DIA" -> "DIA", "AÑO" -> "ANO", "TOTAL\nCASOS" -> "TOTAL CASOS") */
+const canonRow=o=>{ const r={}; for(const k in o){ const c=nrm(k).toUpperCase(); if(!(c in r)) r[c]=o[k]; } return r; };
 const MALIAS={"magui payan":"magui","cuaspud":"cuaspud carlosama","tumaco":"san andres de tumaco"};
 const nlet=s=>String(s??"").normalize("NFD").replace(/[̀-ͯ]/g,"").toLowerCase().replace(/\(ct\)/g,"").replace(/[^a-z ]/g," ").split(/\s+/).filter(Boolean).join(" ");
 const NICE={"vias publicas":"Vías públicas","casas de habitacion":"Casas de habitación","dentro de la vivienda":"Dentro de la vivienda","establecimiento educativo":"Establecimiento educativo","establecimiento de salud":"Establecimiento de salud","hoteles, residencias, y similares":"Hoteles y residencias","entidad publica / estatal":"Entidad pública o estatal","establecimiento publico":"Establecimiento público","fincas y similares":"Fincas","establecimiento de comercio":"Establecimiento de comercio","bares, cantinas y similares":"Bares y cantinas","carceles":"Cárceles","plazas de mercado":"Plazas de mercado","lugar de trabajo":"Lugar de trabajo","callejon":"Callejón","frente a residencias - via publica":"Frente a residencias","frente a almacen - via publica":"Frente a almacén","sobre anden - via publica":"Sobre andén","terminal de transportes":"Terminal de transportes","rios":"Ríos","resguardo indígena":"Resguardo indígena","otro":"Otro","no registra":"No registra","arma de fuego":"Arma de fuego","arma blanca / cortopunzante":"Arma blanca o cortopunzante","contundentes":"Contundentes","sin empleo de armas":"Sin empleo de armas","escopolamina":"Escopolamina","llamada telefonica":"Llamada telefónica","artefacto explosivo/carga dinamita":"Artefacto explosivo","factor de oportunidad":"Factor de oportunidad","violacion de cerradura":"Violación de cerradura","engaño":"Engaño","ciber extorsion":"Ciberextorsión","redes sociales":"Redes sociales","carta extorsiva":"Carta extorsiva","clasica":"Clásica","carcelaria":"Carcelaria"};
@@ -248,14 +253,14 @@ async function runPol(file){
     const MIDX=Object.fromEntries(MUN.map((m,i)=>[m.code,i]));
     const police={}, prof={}, locRaw={}, report=[], unk={}, yearsAll=new Set();
     for(const sh of X.sheets){
-      const key=KEYS[nrm(sh.name)]; if(!key){ report.push({hoja:sh.name,omitida:true}); continue; }
+      const key=sheetKey(sh.name); if(!key||police[key]){ report.push({hoja:sh.name,omitida:true}); continue; }
       st.textContent=`Procesando ${sh.name}…`; await new Promise(r=>setTimeout(r,0));
       const rows0=await X.rowsOf(sh);
       const rows=[]; let tot=0, excl=0;
-      for(const o of rows0){ const mun=o["MUNICIPIO"]; if(mun===""||mun==null) continue;
+      for(const o0 of rows0){ const o=canonRow(o0); const mun=o["MUNICIPIO"]; if(mun===""||mun==null) continue;
         let n=parseFloat(o["TOTAL CASOS"]); if(!isFinite(n)) n=1; n=Math.trunc(n); tot+=n;
         const code=codeOf(mun); if(!code){ excl+=n; unk[mun]=(unk[mun]||0)+n; continue; }
-        let yr=String(o["AÑO"]??"").slice(0,4); const f=toDate(o["FECHA HECHO"]); if(!/^\d{4}$/.test(yr)&&f) yr=String(f.getFullYear()); if(!/^\d{4}$/.test(yr)) continue;
+        let yr=String(o["ANO"]??"").slice(0,4); const f=toDate(o["FECHA HECHO"]); if(!/^\d{4}$/.test(yr)&&f) yr=String(f.getFullYear()); if(!/^\d{4}$/.test(yr)) continue;
         yearsAll.add(yr); rows.push({o,n,code,yr,f}); }
       const m={}, zona={};
       for(const r of rows){ (m[r.code]=m[r.code]||{}); m[r.code][r.yr]=(m[r.code][r.yr]||0)+r.n;
@@ -268,7 +273,7 @@ async function runPol(file){
       for(const r of rows){ const e=((x[r.code]=x[r.code]||{})[r.yr]=x[r.code][r.yr]||{z:[0,0,0],m:Array(12).fill(0),c:Array(7).fill(0),dh:{},h0:0,d:Array(7).fill(0),s:{},a:{}}); const n=r.n;
         const zz=String(r.o["ZONA"]??"").toLowerCase().trim(); e.z[zz==="urbana"?0:zz==="rural"?1:2]+=n;
         if(r.f) e.m[r.f.getMonth()]+=n; e.c[cursoP(r.o["EDAD"])]+=n;
-        let dw=DOW[String(r.o["DÍA"]??"").toLowerCase().trim()]; if(dw==null&&r.f) dw=(r.f.getDay()+6)%7;
+        let dw=DOW[String(r.o["DIA"]??"").toLowerCase().trim()]; if(dw==null&&r.f) dw=(r.f.getDay()+6)%7;
         if(dw!=null) e.d[dw]+=n; const h=horaOf(r.o["HORA"]); if(h<0) e.h0+=n; else if(dw!=null){ const k=String(dw*24+h); e.dh[k]=(e.dh[k]||0)+n; }
         const si=String(sm[r.sit]), ai=String(am[r.arm]); e.s[si]=(e.s[si]||0)+n; e.a[ai]=(e.a[ai]||0)+n; }
       prof[key]={sit:sl,arm:al,x};
