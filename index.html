@@ -80,6 +80,12 @@ button,select,input{font:inherit;color:inherit}
 .toolbar .title{flex:1 1 220px;min-width:0}
 .toolbar h2{font-size:21px;font-weight:800;line-height:1.15}
 .toolbar .src{font-size:12.5px;color:var(--muted)}
+.corte{display:inline-flex;align-items:center;gap:6px;margin-top:7px;padding:4px 11px 4px 9px;border-radius:999px;background:var(--magenta);color:#FFFFFF;font-weight:700;font-size:12.5px;line-height:1.2;letter-spacing:.01em}
+.corte svg{width:14px;height:14px;flex:none}
+.corte:empty{display:none}
+.kpi .kcorte{margin-top:8px;display:inline-block;padding:3px 9px;border-radius:999px;background:rgba(255,255,255,.18);font-size:11.5px;font-weight:700}
+#map .mlabel .mcnt{font-weight:700;fill:var(--violeta)}
+#map .mlabel.dimlabel .mcnt{fill:var(--muted)}
 .controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 select{padding:7px 10px;border-radius:8px;border:1px solid var(--line);background:var(--surface);font-size:13.5px}
 select:disabled{opacity:.5}
@@ -131,6 +137,9 @@ select:disabled{opacity:.5}
 .loctabs button:disabled{opacity:.4;cursor:default}
 #map .lay .pl{stroke:var(--ink);stroke-width:.7;fill-opacity:.85}
 #map .laylabel{font-weight:600}
+#map .lay .pl.cpoly{stroke:var(--violeta);stroke-width:1.8;fill-opacity:.75}
+#map .cpolyl{font-weight:700}
+#map g.far .cpolyl{display:inline}
 #map.layeron .muni:not(.dim){fill-opacity:.3}
 #map g.far .laylabel{display:none}
 @media (max-width:760px){.overview{width:112px}.overview svg{height:90px}.homebtn{padding:6px 10px;font-size:12px}}
@@ -383,6 +392,7 @@ button,input,select{font:inherit}
           <div class="eyebrow" id="mapKicker">Dupla Violeta</div>
           <h2 id="mapTitle">Reporte departamental DUPLA</h2>
           <div class="src" id="mapSrc"></div>
+          <div class="corte" id="mapCorte"></div>
         </div>
         <div class="controls">
           <div class="seg" id="duplaSeg" role="group" aria-label="Mapa de la Dupla Violeta" hidden><button type="button" data-v="dupla">Reporte DUPLA</button><button type="button" data-v="fisica">Violencia física</button><button type="button" data-v="psico">Violencia psicológica</button></div>
@@ -437,12 +447,11 @@ button,input,select{font:inherit}
 
   <section class="card dpanel" id="duplaPanel" hidden aria-label="Reportes de la Dupla Violeta">
     <div class="dphead"><div><span class="eyebrow">Dupla Violeta</span><h2>Reportes y actualización mensual</h2>
-      <p class="hint">1. Descargue la plantilla y diligencie el mes en la hoja MATRIZ (sin datos personales). 2. «Vista previa»: cárguela aquí para revisarla y ver su informe (solo en su navegador). 3. Envíela al administrador, que la publica para todos.</p></div></div>
+      <p class="hint">1. Descargue la plantilla y diligencie el mes en la hoja MATRIZ (sin datos personales). 2. «Vista previa»: cárguela aquí para revisarla y ver su informe con el botón «Informe mensual Dupla» de la parte superior (solo en su navegador). 3. Envíela al administrador, que la publica para todos.</p></div></div>
     <div class="dpbtns">
       <button class="btn" type="button" id="dpTemplate"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>Descargar plantilla</button>
       <label class="btn solid" for="dpFile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21V9M7 14l5-5 5 5M5 3h14"/></svg>Vista previa de la matriz</label>
       <input type="file" id="dpFile" accept=".xlsx,.xls" hidden>
-      <button class="btn hot" type="button" id="dpMonthly"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>Generar informe mensual</button>
     </div>
     <div class="dpstatus" id="dpStatus" aria-live="polite"></div>
     <div id="dpLoaded"></div>
@@ -538,6 +547,7 @@ button,input,select{font:inherit}
   const get=p=>fetch(p,{cache:"no-cache"}).then(r=>{ if(!r.ok) throw new Error("No se encontró "+p); return r.json(); });
   try{
     const [cfg,mun,lim,pol,dup,ins,cVer,cCom,cCp,cBar]=await Promise.all(["datos/config.json","datos/municipios.geojson","datos/limites.json","datos/policia.json","datos/dupla.json","datos/instituciones.geojson","datos/capas/veredas.geojson","datos/capas/comunas.geojson","datos/capas/centros_poblados.geojson","datos/capas/barrios_pasto.geojson"].map(get));
+    const cCorrP=await get("datos/capas/corregimientos_pasto.geojson").catch(()=>({features:[]}));
     const polys=g=>!g?[]:(g.type==="Polygon"?[g.coordinates]:g.type==="MultiPolygon"?g.coordinates:[]);
     const munis=mun.features.map(f=>{ const p=f.properties; return {code:String(p.cod_dane),name:p.municipio,sub:p.subregion,pop:+p.poblacion_2025||0,popm:+p.mujeres_2025||0,area:+p.area_km2||0,c:[+p.lon_etiqueta,+p.lat_etiqueta],g:polys(f.geometry)}; });
     const capa=(fc,extra)=>fc.features.filter(f=>f.geometry).map(f=>[f.properties.nombre,String(f.properties.cod_dane||""),extra?extra(f.properties):null,polys(f.geometry).flat(1)]);
@@ -546,7 +556,7 @@ button,input,select{font:inherit}
     const pts=ins.features.filter(f=>f.geometry&&TIP[nk(f.properties.tipo)]).map(f=>{ const p=f.properties; return {t:TIP[nk(p.tipo)],c:String(p.cod_dane),n:p.nombre||"",a:p.direccion||"",p:p.telefono||"",h:p.horario||"",e:p.correo||"",u:String(p.servicios||"").split(";").map(s=>s.trim()).filter(Boolean),ll:f.geometry.coordinates.slice(0,2),ap:/^s/i.test(p.ubicacion_aproximada||"")}; });
     window.__D={config:cfg,munis,ctx:lim.contexto.map(c=>({name:c.nombre,code:c.cod_dpto,g:c.coordenadas})),sublines:lim.subregiones,deptline:lim.departamento,
       police:pol.police,prof:pol.prof,loc:pol.loc,dup,
-      capas:{data:{veredas:capa(cVer),comunas:capa(cCom),corregimientos:capa(cCp,p=>p.codigo||null),barrios:capa(cBar,p=>p.comuna!=null?String(p.comuna):null)},src:cfg.fuentes_capas||{}},
+      capas:{data:{veredas:capa(cVer),comunas:capa(cCom),corregimientos:capa(cCp,p=>p.codigo||null).concat(capa(cCorrP,()=>"poly")),barrios:capa(cBar,p=>p.comuna!=null?String(p.comuna):null)},src:cfg.fuentes_capas||{}},
       inst:{pts,src:cfg.fuentes_instituciones||{}}};
     const s=document.createElement("script"); s.src="geovisor.js?v="+encodeURIComponent(cfg.actualizado||"1"); s.onerror=()=>{ document.getElementById("loadingMsg").textContent="No se pudo cargar geovisor.js"; }; document.body.appendChild(s);
   }catch(e){
