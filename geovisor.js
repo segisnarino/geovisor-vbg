@@ -26,8 +26,8 @@ const IND = [
 const dupRecs=()=>D.dup.r.filter(r=>S.year==="all"||String(r[1])===S.year);
 let DUP={m:{},corr:{},sinMuni:0};
 function duplaAgg(){ const m={}, corr={}; let sinMuni=0;
-  for(const r of dupRecs()){ if(r[0]<0){ sinMuni++; continue; } const code=MUN[r[0]].code, e=m[code]||(m[code]={total:0,psico:0,fisica:0,sexual:0,eco:0,intento:0,femi:0}), b=r[5];
-    e.total++; if(b&1)e.psico++; if(b&2)e.fisica++; if(b&4)e.sexual++; if(b&8)e.eco++; if(b&16)e.intento++; if(b&32)e.femi++;
+  for(const r of dupRecs()){ if(r[0]<0){ sinMuni++; continue; } const code=MUN[r[0]].code, e=m[code]||(m[code]={total:0,psico:0,fisica:0,sexual:0,eco:0,vif:0,intento:0,femi:0}), b=r[5];
+    e.total++; if(b&1)e.psico++; if(b&2)e.fisica++; if(b&4)e.sexual++; if(b&8)e.eco++; if(b&16)e.intento++; if(b&32)e.femi++; if(b&64)e.vif++;
     if(r[10]>=0){ const k=D.dup.corr[r[10]]; corr[k]=(corr[k]||0)+1; } }
   return {m,corr,sinMuni}; }
 const S = {ind:"dupla", src:null, year:"all", measure:"casos", view:"muni", heat:false, subLines:true, labels:false, grat:true, sel:null, sort:"casos", focus:true, locTab:"barrio", layers:{corregimientos:false,comunas:false,barrios:false,veredas:false}, inst:{com:false,fis:false,ins:false,cj:false}};
@@ -67,7 +67,11 @@ function corteOf(dupla,year){
   else { if(CORTE_MEMO[year]!=null) best=CORTE_MEMO[year]; else { for(const k in D.prof) for(const c in D.prof[k].x) for(const y in D.prof[k].x[c]){ if(year!=="all"&&y!==year) continue; const m=D.prof[k].x[c][y].m; for(let i=11;i>=0;i--) if(m[i]>0){ const v=(+y)*12+i; if(v>best) best=v; break; } } CORTE_MEMO[year]=best; } }
   return best?{y:Math.floor(best/12),m:best%12}:null; }
 const MES_NOM=["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
-const corteTxt=()=>{ const c=corteOf(isDupla(),S.year); return c?`${MES_NOM[c.m]} de ${c.y}`:"sin fecha registrada"; };
+function corteStr(dupla,year){ const c=corteOf(dupla,year); if(!c) return "sin fecha registrada";
+  /* día exacto del corte de la Policía, cuando la matriz lo trae */
+  if(!dupla&&D.polCorte){ const [y,m,dd]=D.polCorte.split("-").map(Number); if(y===c.y&&m-1===c.m) return `${dd} de ${MES_NOM[c.m]} de ${c.y}`; }
+  return `${MES_NOM[c.m]} de ${c.y}`; }
+const corteTxt=()=>corteStr(isDupla(),S.year);
 const corteLabel=()=>"Fecha de corte: "+corteTxt();
 function units(view=S.view){
   const list = view==="sub"
@@ -576,7 +580,7 @@ function render(){
   $("#lyHeat").checked=S.heat; $("#lySub").checked=S.subLines; $("#lyLabels").checked=S.labels; $("#lyGrat").checked=S.grat; $("#lyLabels").disabled=S.view==="sub";
   for(const k in IKIND) $("#in-"+k).checked=!!S.inst[k];
   $("#lyFocus").checked=S.focus; $("#btnMapPdf").lastChild.textContent=fset?" Imprimir mapa de "+(BY[S.sel]?BY[S.sel].name:S.sel):" Imprimir mapa";
-  legend(); ficha(); perfil(); panorama(); table(); save();
+  legend(); ficha(); perfil(); panorama(); try{ consolidado(); }catch(e){ console.error(e); } table(); save();
 }
 function legend(){
   const z=U.filter(u=>!(u.v>0)).length;
@@ -602,8 +606,10 @@ function barsHTML(list,{click=false,dec=S.measure==="tasa"?1:0,pk=false,mxv=null
     if(u.v==null) return `<div class="bar nd" title="${esc(u.name)}: sin dato"><span class="nm">${esc(u.name)}</span><span class="tr"></span><span class="vv">s/d</span></div>`;
     return `<${tag} class="bar${pk&&u.v===top&&u.v>0?" pk":""}" title="${esc(u.name)}: ${fmt(u.v,dec)}${unit?" "+unit:""}" ${click?`type="button" data-sel="${esc(u.id)}"`:""}><span class="nm" title="${esc(u.name)}">${esc(u.name)}</span><span class="tr"><span class="fl" style="width:${mx&&u.v>0?Math.max(1.5,u.v/mx*100):0}%"></span></span><span class="vv">${fmt(u.v,dec)}</span></${tag}>`; }).join("")+`</div>`;
 }
-function duplaTypes(codes){ const t={psico:0,fisica:0,sexual:0,eco:0,intento:0,femi:0,total:0}; for(const c of codes){ const r=DUP.m[c]; if(r) for(const k in t) t[k]+=r[k]||0; } return t; }
-const DTYPES=[["Psicológica","psico"],["Física","fisica"],["Sexual","sexual"],["Económica o patrimonial","eco"],["Intento de feminicidio","intento"],["Feminicidio","femi"]];
+function duplaTypes(codes){ const t={psico:0,fisica:0,sexual:0,eco:0,vif:0,intento:0,femi:0,total:0}; for(const c of codes){ const r=DUP.m[c]; if(r) for(const k in t) t[k]+=r[k]||0; } return t; }
+const DTYPES=[["Psicológica","psico"],["Física","fisica"],["Sexual","sexual"],["Económica o patrimonial","eco"],["Intrafamiliar","vif"],["Intento de feminicidio","intento"],["Feminicidio","femi"]];
+/* «Intrafamiliar» solo aparece cuando alguna matriz ya trae la columna V_INTRAFAMILIAR (matriz v2) */
+const dtypes=()=>DTYPES.filter(([,k])=>k!=="vif"||D.dup.r.some(r=>r[5]&64));
 function ficha(){
   const I=ind(), dupla=isDupla(), box=$("#ficha"), dt=deptTotals(), sorted=U.slice().sort((a,b)=>b.v-a.v);
   if(!S.sel){
@@ -620,7 +626,7 @@ function ficha(){
       <div class="kpi"><div class="v">${u.v>0?rank+"°":"—"}</div><div class="l">puesto entre ${U.length} ${S.view==="sub"?"subregiones":"municipios"}</div></div>
       <div class="kpi"><div class="v">${fmt(u.pop)}</div><div class="l">mujeres (proyección DANE 2025)</div></div></div>`;
     if(!dupla){ const ps=periodSeries(u.codes); h+=`<div class="trend"><span class="eyebrow">${ps.title}</span>${trendSVG(ps)}</div>`; }
-    else { const t=duplaTypes(u.codes); h+=`<div><span class="eyebrow">Tipo de violencia · ${t.total} atenciones</span>${barsHTML(DTYPES.map(([l,k])=>({id:k,name:l,v:t[k]})),{dec:0})}</div>`; }
+    else { const t=duplaTypes(u.codes); h+=`<div><span class="eyebrow">Tipo de violencia · ${t.total} atenciones</span>${barsHTML(dtypes().map(([l,k])=>({id:k,name:l,v:t[k]})),{dec:0})}</div>`; }
     if(S.view==="sub"){ const ms=MUN.filter(m=>m.sub===u.id).map(m=>{ const c=casesFor(m.code); return {id:m.code,name:m.name,v:S.measure==="tasa"?c/m.popm*1e5:c}; }).sort((a,b)=>b.v-a.v); h+=`<div><span class="eyebrow">Municipios de la subregión</span>${barsHTML(ms,{click:true})}</div>`; }
     if(BY[u.id]) h+=locDetail(u.id);
     box.innerHTML=h; $("#backDept").onclick=()=>{ S.sel=null; vb={...HOME}; applyVB(); render(); };
@@ -637,7 +643,7 @@ function panorama(){
   $("#subTitle").textContent=`Subregiones · ${S.measure==="tasa"?"tasa por 100 mil mujeres":"casos"}`;
   $("#subBars").innerHTML=barsHTML(SU,{click:true});
   for(const b of $("#subBars").querySelectorAll("button.bar")) b.onclick=()=>{ selectUnit(b.dataset.sel); $(".stage").scrollIntoView({behavior:"smooth",block:"start"}); };
-  if(dupla){ const t=duplaTypes(Object.keys(DUP.m)); $("#trendTitle").textContent=`Tipo de violencia · ${t.total} atenciones`; $("#panoTrend").innerHTML=barsHTML(DTYPES.map(([l,k])=>({id:k,name:l,v:t[k]})),{dec:0})+`<p class="hint" style="margin-top:8px">Una atención puede registrar varios tipos de violencia.</p>`; }
+  if(dupla){ const t=duplaTypes(Object.keys(DUP.m)); $("#trendTitle").textContent=`Tipo de violencia · ${t.total} atenciones`; $("#panoTrend").innerHTML=barsHTML(dtypes().map(([l,k])=>({id:k,name:l,v:t[k]})),{dec:0})+`<p class="hint" style="margin-top:8px">Una atención puede registrar varios tipos de violencia.</p>`; }
   else { const ps=periodSeries(MUN.map(m=>m.code)); $("#trendTitle").textContent=ps.title+" en el departamento"; $("#panoTrend").innerHTML=trendSVG(ps); }
   if(dupla){ const c=Object.values(DUP.m).reduce((a,r)=>a+r.total,0)||1, p=(DUP.m["52001"]||{}).total||0; $("#splitTitle").textContent="Pasto frente al resto del departamento";
     $("#panoSplit").innerHTML=`<div class="split"><span style="width:${p/c*100}%;background:var(--r4)"></span><span style="width:${(c-p)/c*100}%;background:var(--r2)"></span></div><div class="split-l"><span>Pasto <b class="num">${p}</b> (${fmt(p/c*100)} %)</span><span>Otros municipios <b class="num">${c-p}</b></span></div>`; }
@@ -704,7 +710,7 @@ function pageFooter(c,n,total){
   c.fillText("Ruta de atención Dupla Violeta 24/7 · Psicológica 317 820 3923 · Jurídica 300 747 3482 · duplavioleta@narino.gov.co",M,PH-30);
   c.textAlign="right"; font(c,600,19); c.fillText(`Página ${n} de ${total}`,PW-M,PH-30); c.textAlign="left";
 }
-function drawMapCanvas(c,rect,view){
+function drawMapCanvas(c,rect,view,opt={}){
   const {x:rx,y:ry,w:rw,h:rh}=rect; const k=Math.min(rw/view.w,rh/view.h); const ox=rx+(rw-view.w*k)/2-view.x*k, oy=ry+(rh-view.h*k)/2-view.y*k;
   const P=(lon,lat)=>[ox+X(lon)*k, oy+Y(lat)*k];
   const trace=polys=>{ c.beginPath(); for(const Pl of polys) for(const r of Pl){ r.forEach((p,i)=>{ const [a,b]=P(p[0],p[1]); i?c.lineTo(a,b):c.moveTo(a,b); }); c.closePath(); } };
@@ -741,15 +747,17 @@ function drawMapCanvas(c,rect,view){
   // etiquetas
   c.textAlign="center"; c.textBaseline="middle"; c.lineJoin="round";
   const label=(t,lon,lat,size,weight,fam,col=PC.ink)=>{ const [a,b]=P(lon,lat); if(a<rx||a>rx+rw||b<ry||b>ry+rh) return; font(c,weight,size,fam); c.strokeStyle="rgba(255,255,255,.92)"; c.lineWidth=size*.3; c.strokeText(t,a,b); c.fillStyle=col; c.fillText(t,a,b); };
-  for(const [t,lo,la] of CTXL) label(t,lo,la,22,"italic 500",F.b,PC.muted);
+  for(const [t,lo,la] of CTXL) if(!opt.mini) label(t,lo,la,22,"italic 500",F.b,PC.muted);
   if(fset){ for(const m of MUN) if(!fset.has(m.code)) label(m.name,m.c[0],m.c[1],17,500,F.b,"#8A8299"); for(const cd of FC) label(BY[cd].name,BY[cd].c[0],BY[cd].c[1],FC.length>1?22:30,800,F.d); }
   else if(S.view==="sub") for(const s of SUBS) label(s,SUBC[s][0],SUBC[s][1],24,800,F.d);
+  else if(opt.mini){ const top=U.slice().filter(u=>u.v>0).sort((a,b)=>b.v-a.v).slice(0,3); for(const u of top){ const m=BY[u.id]; label(m.name.replace("San Andrés de ",""),m.c[0],m.c[1],16,700,F.b); } }
   else { const showAll=S.labels||view.w<HOME.w*.6; const top=new Set(U.slice().sort((a,b)=>b.v-a.v).slice(0,8).map(u=>u.id)); for(const m of MUN) if(showAll||top.has(m.code)) label(m.name,m.c[0],m.c[1],showAll?15:19,600,F.b); }
   c.textBaseline="alphabetic"; c.textAlign="left";
   { const sc=Math.min(1.5,Math.max(.8,Math.sqrt(HOME.w/view.w)/2.5)), seen={};
     IPTS.forEach(p=>{ if(!S.inst[p.t]||(fset&&!fset.has(p.c))) return; let [a,bq]=P(p.ll[0],p.ll[1]); if(a<rx||a>rx+rw||bq<ry||bq>ry+rh) return; const key=Math.round(a/14)+"|"+Math.round(bq/14), o=seen[key]=(seen[key]||0)+1; if(o>1){ a+=Math.cos(o*1.6)*18*sc*Math.ceil(o/6); bq+=Math.sin(o*1.6)*18*sc*Math.ceil(o/6); }
       instMark(c,p.t,a,bq,sc); }); }
   c.restore();
+  if(opt.mini){ c.strokeStyle=PC.line; c.lineWidth=2; c.strokeRect(rx,ry,rw,rh); return k; }
   // marco y coordenadas
   c.strokeStyle=PC.ink; c.lineWidth=2; c.strokeRect(rx,ry,rw,rh);
   c.fillStyle=PC.muted; font(c,500,16,F.m);
@@ -830,8 +838,8 @@ function summaryPage(n,total){
     y+=ch+80; c.fillStyle=PC.muted; font(c,400,18); c.fillText(corteLabel()+(S.year==="all"||S.year===CUR_YEAR?" ("+CUR_YEAR+" es un año en curso).":"."),lx,y); y+=50;
     const z=zonaSplit(), t=z.u+z.r+z.o||1; c.fillStyle=PC.muted; font(c,600,19); c.fillText("ZONA DEL HECHO",lx,y); y+=24; c.fillStyle=palP()[3]; c.fillRect(lx,y,lw*z.u/t,26); c.fillStyle=palP()[1]; c.fillRect(lx+lw*z.u/t,y,lw*z.r/t,26);
     y+=60; c.fillStyle=PC.ink; font(c,500,21); c.fillText(`Urbana ${fmt(z.u)} (${fmt(z.u/t*100)} %)`,lx,y); c.textAlign="right"; c.fillText(`Rural ${fmt(z.r)} (${fmt(z.r/t*100)} %)`,lx+lw,y); c.textAlign="left";
-  } else { const tt=duplaTypes(Object.keys(DUP.m)), mx=Math.max(1,...DTYPES.map(([,k])=>tt[k])); y+=20;
-    for(const [l,k] of DTYPES){ c.fillStyle=PC.ink; font(c,500,22); c.fillText(l,lx,y+20); c.fillStyle=PC.sunk; c.fillRect(lx+330,y,lw-430,26); c.fillStyle=palP()[3]; c.fillRect(lx+330,y,(lw-430)*tt[k]/mx,26); font(c,600,22,F.m); c.textAlign="right"; c.fillStyle=PC.ink; c.fillText(tt[k],lx+lw,y+20); c.textAlign="left"; y+=56; }
+  } else { const tt=duplaTypes(Object.keys(DUP.m)), mx=Math.max(1,...dtypes().map(([,k])=>tt[k])); y+=20;
+    for(const [l,k] of dtypes()){ c.fillStyle=PC.ink; font(c,500,22); c.fillText(l,lx,y+20); c.fillStyle=PC.sunk; c.fillRect(lx+330,y,lw-430,26); c.fillStyle=palP()[3]; c.fillRect(lx+330,y,(lw-430)*tt[k]/mx,26); font(c,600,22,F.m); c.textAlign="right"; c.fillStyle=PC.ink; c.fillText(tt[k],lx+lw,y+20); c.textAlign="left"; y+=56; }
     c.fillStyle=PC.muted; font(c,400,18); y=wrapText(c,`${tt.total} atenciones · ${periodLabel()}. Una atención puede registrar varios tipos de violencia.`,lx,y+20,lw,26); }
   // derecha: subregiones
   const rx=M+lw+110, rw=PW-M-rx; y=560; c.fillStyle=PC.muted; font(c,600,19); c.fillText("SUBREGIONES",rx,y); y+=40;
@@ -858,7 +866,7 @@ function fichaPage(n,total){
   let y=570; const lx=M, lw=1000;
   if(!dupla){ const PS=periodSeries(u.codes); c.fillStyle=PC.muted; font(c,600,19); c.fillText(PS.title.toUpperCase(),lx,y); y+=30; const s=PS.vals, mx=Math.max(1,...s), ch=250, bw=lw/Math.max(3,s.length), gp=s.length>6?8:28;
     s.forEach((v,i)=>{ const h=ch*v/mx, x=lx+i*bw+gp/2, by=y+ch+20; c.fillStyle=palP()[2]; c.fillRect(x,by-h,bw-gp,h); c.fillStyle=PC.ink; font(c,500,20,F.m); c.textAlign="center"; c.fillText(fmt(v),x+(bw-gp)/2,by-h-10); c.fillStyle=PC.muted; c.fillText(PS.labels[i],x+(bw-gp)/2,by+30); c.textAlign="left"; }); }
-  else { const tt=duplaTypes(u.codes); c.fillStyle=PC.muted; font(c,600,19); c.fillText("TIPO DE VIOLENCIA",lx,y); y+=40; for(const [l,k] of DTYPES){ c.fillStyle=PC.ink; font(c,500,22); c.fillText(`${l}: ${tt[k]}`,lx,y); y+=44; } }
+  else { const tt=duplaTypes(u.codes); c.fillStyle=PC.muted; font(c,600,19); c.fillText("TIPO DE VIOLENCIA",lx,y); y+=40; for(const [l,k] of dtypes()){ c.fillStyle=PC.ink; font(c,500,22); c.fillText(`${l}: ${tt[k]}`,lx,y); y+=44; } }
   { const codes=u.codes, b=boundsOf(codes), w=b[2]-b[0], h=b[3]-b[1], pad=.35; const r={x:M+34,y:1000,w:1000-34,h:PH-1000-190};
     c.fillStyle=PC.muted; font(c,600,19); c.fillText("UBICACIÓN",M,968);
     const asp=r.w/r.h; let vw=w*(1+2*pad), vh=h*(1+2*pad); if(vw/vh<asp) vw=vh*asp; else vh=vw/asp;
@@ -895,11 +903,11 @@ function profile(codes){
   if(isDupla()){
     const set=new Set(codes.map(c=>MUN.findIndex(m=>m.code===c))), DP=D.dup;
     const o={dupla:true,n:0,c:Array(7).fill(0),d:Array(7).fill(0),dk:0,my:Object.fromEntries(DUP_YEARS.map(y=>[y,Array(12).fill(0)])),mNo:0,
-      l:Array(DP.lugar.length).fill(0),g:Array(DP.agresor.length).fill(0),e:Array(DP.etnia.length).fill(0),pb:Array(5).fill(0),t:{psico:0,fisica:0,sexual:0,eco:0,intento:0,femi:0},n24:0};
+      l:Array(DP.lugar.length).fill(0),g:Array(DP.agresor.length).fill(0),e:Array(DP.etnia.length).fill(0),pb:Array(5).fill(0),t:{psico:0,fisica:0,sexual:0,eco:0,vif:0,intento:0,femi:0},n24:0};
     for(const r of dupRecs()){ if(!set.has(r[0])) continue; o.n++;
       o.c[r[4]]++; if(r[3]>=0){ o.d[r[3]]++; o.dk++; } if(r[2]>0) o.my[String(r[1])][r[2]-1]++; else o.mNo++;
       o.l[r[6]]++; o.g[r[7]]++; o.e[r[8]]++; for(let i=0;i<5;i++) if(r[9]&(1<<i)) o.pb[i]++;
-      const b=r[5]; if(b&1)o.t.psico++; if(b&2)o.t.fisica++; if(b&4)o.t.sexual++; if(b&8)o.t.eco++; if(b&16)o.t.intento++; if(b&32)o.t.femi++;
+      const b=r[5]; if(b&1)o.t.psico++; if(b&2)o.t.fisica++; if(b&4)o.t.sexual++; if(b&8)o.t.eco++; if(b&16)o.t.intento++; if(b&32)o.t.femi++; if(b&64)o.t.vif++;
       if(r[11]===0) o.n24++; }
     o.m=Array(12).fill(0); for(const y of DUP_YEARS) o.my[y].forEach((v,i)=>o.m[i]+=v);
     return o;
@@ -1055,7 +1063,7 @@ function perfilPages(start,total){
     { const {cv,c}=newPage(); pageHeader(c,"¿Dónde ocurre y quién agrede?",sub); cFactsRow(c,f.slice(4).concat([["Atenciones con intento de feminicidio",fmt(p.t.intento)],["Feminicidios registrados",fmt(p.t.femi)]]),330);
       cTitle(c,"Lugar de los hechos",M,510); cBars(c,M,525,half,srt(DP.lugar,p.l),{rowH:50});
       cTitle(c,"Relación de la persona agresora",x2,510); cBars(c,x2,525,half,srt(DP.agresor,p.g),{rowH:50});
-      cTitle(c,"Tipo de violencia",M,1030); cBars(c,M,1045,half,DTYPES.map(([l,k])=>({name:l,v:p.t[k]})),{rowH:60});
+      cTitle(c,"Tipo de violencia",M,1030); cBars(c,M,1045,half,dtypes().map(([l,k])=>({name:l,v:p.t[k]})),{rowH:60});
       cTitle(c,"Pertenencia étnica",x2,1030); cBars(c,x2,1045,half,srt(DP.etnia,p.e),{rowH:60});
       c.fillStyle=PC.muted; font(c,400,17); wrapText(c,"Una atención puede registrar varios tipos de violencia. La matriz 2024 no tiene columnas de lugar, agresor, violencia sexual ni económica.",M,1440,PW-2*M,24);
       pageFooter(c,start+1,total); out.push(cv); }
@@ -1125,9 +1133,9 @@ const SRC_LBL={y2024:"Matriz Dupla Violeta 2024",y2025:"Matriz de atención marz
 function monthsAvail(){ const s=new Map(); for(const r of D.dup.r) if(r[2]>0){ const k=r[1]*100+r[2]; s.set(k,(s.get(k)||0)+1); } return [...s.entries()].sort((a,b)=>b[0]-a[0]).map(([k,n])=>({y:Math.floor(k/100),m:k%100,n})); }
 function monthStats(y,m,code){
   const R=D.dup.r.filter(r=>r[1]===y&&r[2]===m&&(!code||(r[0]>=0&&MUN[r[0]].code===code)));
-  const o={y,m,n:R.length,R,t:{psico:0,fisica:0,sexual:0,eco:0,intento:0,femi:0},c:Array(7).fill(0),d:Array(7).fill(0),dk:0,l:Array(D.dup.lugar.length).fill(0),g:Array(D.dup.agresor.length).fill(0),e:Array(D.dup.etnia.length).fill(0),pb:Array(5).fill(0),
+  const o={y,m,n:R.length,R,t:{psico:0,fisica:0,sexual:0,eco:0,vif:0,intento:0,femi:0},c:Array(7).fill(0),d:Array(7).fill(0),dk:0,l:Array(D.dup.lugar.length).fill(0),g:Array(D.dup.agresor.length).fill(0),e:Array(D.dup.etnia.length).fill(0),pb:Array(5).fill(0),
     mun:{},sinMun:0,rut:Array(5).fill(0),rutAny:0,rutOK:0,src:new Set()};
-  for(const r of R){ const b=r[5]; o.t.psico+=b&1?1:0; o.t.fisica+=b&2?1:0; o.t.sexual+=b&4?1:0; o.t.eco+=b&8?1:0; o.t.intento+=b&16?1:0; o.t.femi+=b&32?1:0;
+  for(const r of R){ const b=r[5]; o.t.psico+=b&1?1:0; o.t.fisica+=b&2?1:0; o.t.sexual+=b&4?1:0; o.t.eco+=b&8?1:0; o.t.intento+=b&16?1:0; o.t.femi+=b&32?1:0; o.t.vif+=b&64?1:0;
     o.c[r[4]]++; if(r[3]>=0){ o.d[r[3]]++; o.dk++; } o.l[r[6]]++; o.g[r[7]]++; o.e[r[8]]++; for(let i=0;i<5;i++) if(r[9]&(1<<i)) o.pb[i]++;
     o.src.add(D.dup.src[r[11]]);
     if(r[0]<0) o.sinMun++; else { const c=MUN[r[0]].code, x=o.mun[c]||(o.mun[c]={code:c,name:MUN[r[0]].name,sub:MUN[r[0]].sub,n:0,t:[0,0,0,0,0,0],rut:[0,0,0,0,0]}); x.n++; for(let i=0;i<6;i++) if(b&(1<<i)) x.t[i]++; if(r[12]>0) for(let i=0;i<5;i++) if(r[12]&(1<<i)) x.rut[i]++; }
@@ -1137,9 +1145,9 @@ function monthStats(y,m,code){
   const subs={}; for(const x of o.munL) subs[x.sub]=(subs[x.sub]||0)+x.n; o.subL=Object.entries(subs).map(([name,v])=>({name,v})).sort((a,b)=>b.v-a.v);
   return o;
 }
-const TIPOS=[["Psicológica","psico"],["Física","fisica"],["Sexual","sexual"],["Económica o patrimonial","eco"],["Intento de feminicidio","intento"],["Feminicidio","femi"]];
+const TIPOS=[["Psicológica","psico"],["Física","fisica"],["Sexual","sexual"],["Económica o patrimonial","eco"],["Intrafamiliar","vif"],["Intento de feminicidio","intento"],["Feminicidio","femi"]];
 function monthReading(o,prev,scope){
-  const out=[], top=o.munL[0], tt=TIPOS.map(([l,k])=>({l,v:o.t[k]})).sort((a,b)=>b.v-a.v);
+  const out=[], top=o.munL[0], tt=TIPOS.filter(([,k])=>k!=="vif"||o.t.vif>0).map(([l,k])=>({l,v:o.t[k]})).sort((a,b)=>b.v-a.v);
   if(prev&&prev.n){ const dd=o.n-prev.n; out.push(`Se registraron ${o.n} atenciones, ${dd===0?"igual número que":dd>0?`${dd} más que`:`${-dd} menos que`} en ${MESES_L[prev.m-1]} de ${prev.y} (${prev.n}).`); }
   else out.push(`Se registraron ${o.n} ${o.n===1?"atención":"atenciones"}${scope?" en "+scope:""} en el mes.`);
   if(!scope&&top) out.push(`${top.name} concentra ${top.n} ${top.n===1?"atención":"atenciones"} (${pct(top.n,o.n)}); hubo atenciones en ${o.munL.length} de los 64 municipios.`);
@@ -1200,7 +1208,7 @@ function monthlyPagesInner(y,m,code){
   const scope=code?BY[code].name:"", mesTxt=`${MES_L_CAP[m-1]} de ${y}`, sub=`${code?scope+" · ":"Departamento de Nariño · "}Atenciones de la Dupla Violeta · ${mesTxt}`;
   const srcTxt=[...o.src].map(s=>SRC_LBL[s]||(String(s).startsWith("carga:")?"Matriz estandarizada "+String(s).slice(6):s)).join(", ")||"Matriz de atención Dupla Violeta";
   const half=(PW-2*M-110)/2, x2=M+half+110, total=3, pages=[];
-  const tt=TIPOS.filter(([,k])=>!(o.noSE&&(k==="sexual"||k==="eco"))).map(([l,k])=>({name:l,v:o.t[k]}));
+  const tt=TIPOS.filter(([,k])=>!(o.noSE&&(k==="sexual"||k==="eco"))&&(k!=="vif"||o.t.vif>0)).map(([l,k])=>({name:l,v:o.t[k]}));
   const topT=tt.slice().sort((a,b)=>b.v-a.v)[0];
   // ---- página 1
   { const {cv,c}=newPage(); duplaHeader(c,`Informe mensual · ${mesTxt}`,sub);
@@ -1270,12 +1278,177 @@ async function buildMonthly(){
 }
 $("#btnMonthly").onclick=openMonthly; $("#mmGo").onclick=()=>{ $("#mmStatus").textContent=""; buildMonthly(); };
 
+
+/* ================= INFORME CONSOLIDADO DE VIOLENCIAS BASADAS EN GÉNERO (departamental) ================= */
+const VBG=[["dupla","Atenciones Dupla Violeta","Dupla Violeta"],["sexual","Violencia sexual","Policía Nacional"],["feminicidio","Feminicidio","Policía Nacional"],["lesiones","Lesiones personales","Policía Nacional"],["vif","Violencia intrafamiliar","Policía Nacional"]];
+/* calcula con otro indicador sin alterar lo que el usuario ve */
+function withInd(id,fn){
+  const s={ind:S.ind,sel:S.sel,src:S.src,view:S.view,heat:S.heat,layers:{...S.layers},inst:{...S.inst}}, _U=U,_B=B,_D=DUP,_P=PALK;
+  try{ S.ind=id; S.src=null; S.sel=null; S.view="muni"; S.heat=false; for(const k in S.layers) S.layers[k]=false; for(const k in S.inst) S.inst[k]=false;
+    DUP=duplaAgg(); PALK=palKey(); U=units("muni"); B=breaks(U.map(u=>u.v)); return fn(); }
+  finally{ Object.assign(S,s); U=_U; B=_B; DUP=_D; PALK=_P; }
+}
+function vbgSeries(){ /* por año (acumulado) o por mes del año elegido */
+  if(isDupla()){ const R=dupRecs();
+    if(S.year==="all") return {labels:DUP_YEARS.slice(),vals:DUP_YEARS.map(y=>R.filter(r=>String(r[1])===y&&r[0]>=0).length),unit:"año"};
+    const m=Array(12).fill(0); for(const r of R) if(r[2]>0&&r[0]>=0) m[r[2]-1]++; const ix=m.map((v,i)=>i).filter(i=>m[i]>0); return {labels:ix.map(i=>MESES_C3[i]),vals:ix.map(i=>m[i]),unit:"mes"}; }
+  const ps=periodSeries(MUN.map(m=>m.code)); return {labels:ps.labels,vals:ps.vals,unit:S.year==="all"?"año":"mes"};
+}
+function vbgStat(id,short,src){
+  return withInd(id,()=>{ const I=ind(), dt=deptTotals(), sorted=U.slice().sort((a,b)=>b.v-a.v), subs=units("sub").sort((a,b)=>b.v-a.v), p=profile(MUN.map(m=>m.code));
+    const t=isDupla()?duplaTypes(MUN.map(m=>m.code)):null;
+    return {id,short,src,label:I.label,dupla:isDupla(),tot:dt.tot,nm:U.filter(u=>u.casos>0).length,top:sorted.filter(u=>u.v>0).slice(0,5),subs,
+      byCode:Object.fromEntries(U.map(u=>[u.id,u.casos])),bySub:Object.fromEntries(subs.map(u=>[u.id,u.casos])),p,facts:facts(p),corte:corteTxt(),period:periodLabel(),
+      pal:PALS[PALK]||PALS.dupla,B:B.slice(),z:isDupla()?null:zonaSplit(),pasto:(U.find(u=>u.id==="52001")||{}).casos||0,t,ser:vbgSeries(),sinMuni:isDupla()?DUP.sinMuni:0}; }); }
+function vbgAll(){ return VBG.map(([id,short,src])=>vbgStat(id,short,src)); }
+const pctN=(v,t)=>t?Math.round(v/t*100):0;
+function vbgReading(A){
+  const pol=A.filter(a=>!a.dupla), du=A.find(a=>a.dupla), out=[];
+  const big=pol.slice().sort((a,b)=>b.tot-a.tot)[0];
+  if(big&&big.tot) out.push(`${big.short} es el delito con más casos registrados por la Policía: ${fmt(big.tot)} en el periodo, en ${big.nm} de los 64 municipios.`);
+  const sh=pol.filter(a=>a.tot).map(a=>pctN(a.pasto,a.tot)); if(sh.length) out.push(`Pasto concentra entre el ${Math.min(...sh)} % y el ${Math.max(...sh)} % de los casos de la Policía, según el tipo de violencia.`);
+  const cnt={}; pol.forEach(a=>{ if(a.subs[0]&&a.subs[0].casos) cnt[a.subs[0].id]=(cnt[a.subs[0].id]||0)+1; }); const ts=Object.entries(cnt).sort((a,b)=>b[1]-a[1])[0];
+  if(ts) out.push(`La subregión ${ts[0]} registra el mayor número de casos en ${ts[1]} de los ${pol.length} delitos de la Policía.`);
+  const fe=A.find(a=>a.id==="feminicidio"); if(fe&&fe.tot) out.push(`Se registraron ${fmt(fe.tot)} ${fe.tot===1?"feminicidio":"feminicidios"} en ${fe.nm} ${fe.nm===1?"municipio":"municipios"}${fe.top.length?`, con más casos en ${fe.top.slice(0,3).map(u=>`${u.name} (${u.casos})`).join(", ")}`:""}.`);
+  const vs=A.find(a=>a.id==="sexual"); if(vs&&vs.tot){ const c=vs.p.c, k=sum(c.slice(0,6)); if(k) out.push(`En violencia sexual, el ${pctN(c[0]+c[1]+c[2],k)} % de las víctimas con edad registrada son niñas y adolescentes (0 a 17 años).`); }
+  if(du&&du.tot){ const t=du.t; out.push(`La Dupla Violeta registró ${fmt(du.tot)} atenciones; la violencia psicológica aparece en el ${pctN(t.psico,t.total)} % y la física en el ${pctN(t.fisica,t.total)} % de ellas.`); }
+  const z=pol.filter(a=>a.z).map(a=>[a.short,pctN(a.z.u,a.z.u+a.z.r)]); if(z.length){ const lo=z.slice().sort((a,b)=>a[1]-b[1])[0]; out.push(`La mayoría de los casos ocurre en zona urbana; la proporción rural es más alta en ${lo[0].toLowerCase()} (${100-lo[1]} %).`); }
+  return out;
+}
+const VBG_NOTE="Las cifras de la Policía y de la Dupla Violeta no se suman: son registros distintos y una misma mujer puede aparecer en ambos.";
+/* ---- páginas del PDF ---- */
+function vbgHead(c,title,A){ const pol=A.find(a=>!a.dupla), du=A.find(a=>a.dupla);
+  pageHeader(c,title,`Departamento de Nariño · ${pol.period} · Policía: corte ${pol.corte} · Dupla Violeta: corte ${du.corte}`); }
+function vbgPage1(A,n,T){
+  const {cv,c}=newPage(); vbgHead(c,"Informe consolidado de violencias basadas en género",A);
+  const gap=24, tw=(PW-2*M-gap*(A.length-1))/A.length;
+  A.forEach((a,i)=>{ const x=M+i*(tw+gap), y=330; c.fillStyle=a.pal[4]; c.fillRect(x,y,tw,190);
+    c.fillStyle="#FFFFFF"; font(c,700,21); c.fillText(a.short.toUpperCase(),x+24,y+42); font(c,800,64,F.m); c.fillText(fmt(a.tot),x+24,y+118);
+    font(c,400,19); c.fillStyle="rgba(255,255,255,.85)"; c.fillText(`${a.dupla?"atenciones":"casos"} · ${a.nm} municipios`,x+24,y+152); c.fillText(`Corte: ${a.corte}`,x+24,y+178); });
+  // tabla comparativa
+  const cols=[["Tipo de violencia",420],["Fuente",260],["Casos",150],["Municipios",170],["Municipio con más casos",420],["Subregión con más casos",360],["Pasto",170]];
+  let y=580, x=M; cTitle(c,"Comparación departamental",M,y-16); c.fillStyle=PC.violet; c.fillRect(M,y,PW-2*M,46); c.fillStyle="#FFFFFF"; font(c,700,19);
+  cols.forEach(([h,w])=>{ const r=["Casos","Municipios","Pasto"].includes(h); c.textAlign=r?"right":"left"; c.fillText(h,r?x+w-18:x+18,y+30); x+=w; }); c.textAlign="left"; y+=46;
+  A.forEach((a,ri)=>{ if(ri%2===0){ c.fillStyle=PC.sunk; c.fillRect(M,y,PW-2*M,62); } x=M;
+    const vals=[a.short,a.src,fmt(a.tot),`${a.nm} / 64`,a.top[0]?`${a.top[0].name} (${fmt(a.top[0].casos)})`:"—",a.subs[0]&&a.subs[0].casos?`${a.subs[0].name} (${fmt(a.subs[0].casos)})`:"—",a.tot?`${pctN(a.pasto,a.tot)} %`:"—"];
+    vals.forEach((v,i)=>{ const w=cols[i][1], r=[2,3,6].includes(i); if(i===0){ c.fillStyle=a.pal[3]; c.fillRect(x+18,y+21,20,20); }
+      c.fillStyle=PC.ink; font(c,i===0?700:500,21,r?F.m:F.b); c.textAlign=r?"right":"left"; let s=String(v); while(c.measureText(s).width>w-40&&s.length>4) s=s.slice(0,-2); if(s!==String(v)) s=s.slice(0,-1)+"…"; c.fillText(s,r?x+w-18:x+(i===0?50:18),y+40); x+=w; });
+    c.textAlign="left"; y+=62; });
+  c.fillStyle=PC.muted; font(c,400,18); c.fillText(VBG_NOTE+(A.find(a=>a.dupla).sinMuni?` ${A.find(a=>a.dupla).sinMuni} atenciones de la Dupla no tienen municipio identificable.`:""),M,y+34);
+  // lectura
+  y+=96; cTitle(c,"Lectura departamental",M,y); y+=38;
+  for(const s of vbgReading(A)){ c.fillStyle=PC.magenta; c.fillRect(M,y-14,9,9); c.fillStyle=PC.ink; font(c,400,22); y=wrapText(c,s,M+26,y,PW-2*M-26,29)+8; if(y>PH-130) break; }
+  pageFooter(c,n,T); return cv;
+}
+function vbgPage2(A,n,T){
+  const {cv,c}=newPage(); vbgHead(c,"Mapas por tipo de violencia",A);
+  const gx=40, cw=(PW-2*M-2*gx)/3, ch=520;
+  const cells=A.map(a=>({a})).concat([{dupla:true}]);
+  cells.forEach((cell,i)=>{ const col=i%3, row=Math.floor(i/3), x=M+col*(cw+gx)+20, y=330+row*(ch+40);
+    if(cell.a){ const a=cell.a; c.fillStyle=PC.ink; font(c,800,28,F.d); c.fillText(a.short,x,y+26); c.fillStyle=PC.muted; font(c,400,18); c.fillText(`${fmt(a.tot)} ${a.dupla?"atenciones":"casos"} · ${a.src}`,x,y+54);
+      const rect={x,y:y+70,w:cw-20,h:ch-130};
+      withInd(a.id,()=>{ const _g=S.grat; S.grat=false; try{ drawMapCanvas(c,rect,{...HOME},{mini:true}); } finally{ S.grat=_g; } });
+      let lx=x, ly=y+ch-36; a.B.forEach((r,k)=>{ c.fillStyle=a.pal[rampIdx(k,a.B.length)]; c.fillRect(lx,ly-17,26,20); c.fillStyle=PC.ink; font(c,500,16,F.m); const t=r[0]===r[1]?fmt(r[0]):`${fmt(r[0])}–${fmt(r[1])}`; c.fillText(t,lx+32,ly); lx+=32+c.measureText(t).width+18; });
+    } else { const du=A.find(a=>a.dupla); c.fillStyle=PC.ink; font(c,800,28,F.d); c.fillText("Tipos de violencia atendidos",x,y+26); c.fillStyle=PC.muted; font(c,400,18); c.fillText("Dupla Violeta · una atención puede registrar varios tipos",x,y+54);
+      const _p=PALK; PALK="dupla"; try{ cBars(c,x,y+90,cw-20,dtypes().map(([l,k])=>({name:l,v:du.t[k]})),{rowH:58,labelW:300,pk:true}); } finally{ PALK=_p; } } });
+  pageFooter(c,n,T); return cv;
+}
+function vbgPage3(A,n,T){
+  const {cv,c}=newPage(); vbgHead(c,"Casos por municipio y tipo de violencia",A);
+  const pol=A.filter(a=>!a.dupla), rows=MUN.map(m=>({m,pt:pol.reduce((s,a)=>s+(a.byCode[m.code]||0),0)})).sort((a,b)=>b.pt-a.pt||a.m.name.localeCompare(b.m.name,"es"));
+  const gap=60, tw=(PW-2*M-gap)/2, w0=360, w1=(tw-w0)/(A.length+1), half=Math.ceil(rows.length/2), y0=360, rh=Math.floor((PH-215-y0)/half);
+  const hdr=A.map(a=>a.dupla?"Dupla":a.id==="feminicidio"?"Femin.":a.id==="lesiones"?"Lesiones":a.id==="sexual"?"Sexual":"VIF").concat(["Total Pol."]);
+  for(let t=0;t<2;t++){ const tx=M+t*(tw+gap); let y=y0; c.fillStyle=PC.violet; c.fillRect(tx,y-46,tw,46); c.fillStyle="#FFFFFF"; font(c,700,18); c.fillText("Municipio",tx+14,y-16);
+    hdr.forEach((h,i)=>{ c.textAlign="right"; c.fillText(h,tx+w0+(i+1)*w1-12,y-16); }); c.textAlign="left";
+    rows.slice(t*half,(t+1)*half).forEach((r,ri)=>{ if(ri%2===0){ c.fillStyle=PC.sunk; c.fillRect(tx,y,tw,rh); }
+      c.fillStyle=PC.ink; font(c,500,Math.min(19,rh*.6)); c.fillText(`${t*half+ri+1}. ${r.m.name}`,tx+14,y+rh*.7);
+      A.forEach((a,i)=>{ const v=a.byCode[r.m.code]||0, k=classOf(v,a.B), cx=tx+w0+i*w1;
+        if(k>=0){ c.fillStyle=a.pal[rampIdx(k,a.B.length)]; c.fillRect(cx+4,y+2,w1-8,rh-4); }
+        c.fillStyle=k>=3?"#FFFFFF":PC.ink; font(c,500,Math.min(18,rh*.58),F.m); c.textAlign="right"; c.fillText(v?fmt(v):"·",cx+w1-12,y+rh*.7); });
+      font(c,700,Math.min(18,rh*.58),F.m); c.fillStyle=PC.ink; c.fillText(fmt(r.pt),tx+w0+(A.length+1)*w1-12,y+rh*.7); c.textAlign="left"; y+=rh; }); }
+  c.fillStyle=PC.muted; font(c,400,17); wrapText(c,`Ordenado por el total de casos de la Policía (violencia sexual, feminicidio, lesiones personales y violencia intrafamiliar). El color de cada celda sigue la clase del mapa de ese tipo de violencia. ${VBG_NOTE}`,M,PH-134,PW-2*M,22,2);
+  pageFooter(c,n,T); return cv;
+}
+function vbgPage4(A,n,T){
+  const {cv,c}=newPage(); vbgHead(c,"¿Cuándo, a quién y dónde ocurre?",A);
+  const heads=["Tipo de violencia","Mes con más casos","Día con más casos","Franja con más casos","Curso de vida más afectado","Sitio o lugar más frecuente","Arma o medio / agresor"], ws=[360,240,240,300,380,380,0]; ws[6]=PW-2*M-ws.slice(0,6).reduce((a,b)=>a+b,0);
+  let y=350; c.fillStyle=PC.violet; c.fillRect(M,y,PW-2*M,50); c.fillStyle="#FFFFFF"; font(c,700,18); let x=M; heads.forEach((h,i)=>{ wrapText(c,h,x+14,y+31,ws[i]-20,20,2); x+=ws[i]; }); y+=50;
+  A.forEach((a,ri)=>{ const f=a.facts, v=a.dupla?[f[1][1],f[2][1],"No registra hora",f[3][1],f[4][1],f[5][1]]:f.map(q=>q[1]);
+    if(ri%2===0){ c.fillStyle=PC.sunk; c.fillRect(M,y,PW-2*M,96); } x=M; c.fillStyle=a.pal[3]; c.fillRect(x+14,y+20,20,20); c.fillStyle=PC.ink; font(c,700,21); wrapText(c,a.short,x+46,y+38,ws[0]-60,26,2); x+=ws[0];
+    v.forEach((s,i)=>{ c.fillStyle=s==="—"||s==="No registra hora"?PC.muted:PC.ink; font(c,500,20); wrapText(c,s,x+14,y+38,ws[i+1]-24,25,3); x+=ws[i+1]; }); y+=96; });
+  // curso de vida 100 %
+  y+=60; cTitle(c,"Curso de vida de las víctimas (porcentaje sobre los registros con edad)",M,y); y+=30;
+  const CV=["#F0E8FA","#D5C3EE","#B196DD","#8463C4","#5A3A9C","#33195F"], lw=360, bw=PW-2*M-lw-40;
+  A.forEach(a=>{ const k=sum(a.p.c.slice(0,6)); c.fillStyle=PC.ink; font(c,600,20); c.fillText(a.short,M,y+30); let bx=M+lw;
+    a.p.c.slice(0,6).forEach((v,i)=>{ const w=k?bw*v/k:0; c.fillStyle=CV[i]; c.fillRect(bx,y+8,w,34); const pp=k?Math.round(v/k*100):0; if(w>54){ c.fillStyle=i>=3?"#FFFFFF":PC.ink; font(c,600,17,F.m); c.textAlign="center"; c.fillText(pp+" %",bx+w/2,y+31); c.textAlign="left"; } bx+=w; });
+    if(!k){ c.fillStyle=PC.muted; font(c,400,18); c.fillText("Sin registros con edad",M+lw,y+31); } y+=52; });
+  let lx=M+lw; CURSO.slice(0,6).forEach((nm,i)=>{ c.fillStyle=CV[i]; c.fillRect(lx,y+10,22,22); c.fillStyle=PC.ink; font(c,500,17); c.fillText(nm,lx+30,y+28); lx+=30+c.measureText(nm).width+28; });
+  pageFooter(c,n,T); return cv;
+}
+function vbgPage5(A,n,T){
+  const {cv,c}=newPage(); vbgHead(c,"Subregiones y evolución en el periodo",A);
+  const tw=1160, w0=330, w1=(tw-w0)/A.length; let y=380; cTitle(c,"Casos por subregión",M,y-30);
+  c.fillStyle=PC.violet; c.fillRect(M,y,tw,46); c.fillStyle="#FFFFFF"; font(c,700,18); c.fillText("Subregión",M+14,y+30);
+  A.forEach((a,i)=>{ c.textAlign="right"; c.fillText(a.dupla?"Dupla":a.id==="feminicidio"?"Femin.":a.id==="lesiones"?"Lesiones":a.id==="sexual"?"Sexual":"VIF",M+w0+(i+1)*w1-12,y+30); }); c.textAlign="left"; y+=46;
+  const rh=Math.floor((PH-200-y)/SUBS.length);
+  SUBS.slice().sort((p,q)=>(A[4].bySub[q]||0)-(A[4].bySub[p]||0)).forEach((s,ri)=>{ if(ri%2===0){ c.fillStyle=PC.sunk; c.fillRect(M,y,tw,rh); } c.fillStyle=PC.ink; font(c,500,Math.min(20,rh*.55)); c.fillText(s,M+14,y+rh*.66);
+    A.forEach((a,i)=>{ const v=a.bySub[s]||0, vals=Object.values(a.bySub), b=breaks(vals), k=classOf(v,b), cx=M+w0+i*w1; if(k>=0){ c.fillStyle=a.pal[rampIdx(k,b.length)]; c.fillRect(cx+4,y+3,w1-8,rh-6); }
+      c.fillStyle=k>=3?"#FFFFFF":PC.ink; font(c,500,Math.min(19,rh*.55),F.m); c.textAlign="right"; c.fillText(v?fmt(v):"·",cx+w1-12,y+rh*.66); c.textAlign="left"; }); y+=rh; });
+  // evolución: un gráfico pequeño por tipo de violencia, cada uno con su escala
+  const ex=M+tw+90, ew=PW-M-ex, eh=Math.floor((PH-200-350)/A.length); y=350; const unit=A[0].ser.unit;
+  cTitle(c,unit==="año"?"Evolución por año (cada gráfico con su propia escala)":`Casos por mes · ${S.year}`,ex,y); y+=20;
+  A.forEach(a=>{ c.fillStyle=PC.ink; font(c,700,20); c.fillText(a.short,ex,y+24); const L=a.ser.labels, V=a.ser.vals, mx=Math.max(1,...V), bx0=ex+300, bwid=(ew-300)/Math.max(3,L.length), base=y+eh-30;
+    V.forEach((v,i)=>{ const h=(eh-70)*v/mx, bx=bx0+i*bwid+6, w=bwid-12; c.fillStyle=a.pal[3]; c.fillRect(bx,base-h,w,h); c.fillStyle=PC.ink; font(c,500,16,F.m); c.textAlign="center"; if(v) c.fillText(fmt(v),bx+w/2,base-h-6); c.fillStyle=PC.muted; font(c,500,16); c.fillText(L[i],bx+w/2,base+20); c.textAlign="left"; });
+    if(!V.length){ c.fillStyle=PC.muted; font(c,400,18); c.fillText("Sin registros en el periodo",bx0,y+eh/2); }
+    y+=eh; });
+  c.fillStyle=PC.muted; font(c,400,17); c.fillText(`${CUR_YEAR} es un año en curso. Dupla Violeta: ${DUP_YEARS.map(y=>`${y} ${D.dup.cobertura[y]||"sin mes"}`).join("; ")}.`,M,PH-118);
+  pageFooter(c,n,T); return cv;
+}
+async function buildConsolidado(year){
+  const _y=S.year; if(year!=null) S.year=year;
+  try{
+  try{ await Promise.all([document.fonts.load('800 40px "Bricolage Grotesque"'),document.fonts.load('400 20px "Public Sans"'),document.fonts.load('600 20px "Public Sans"'),document.fonts.load('500 20px "IBM Plex Mono"')]); }catch(e){}
+  const A=vbgAll(), T=5, pages=[vbgPage1(A,1,T),vbgPage2(A,2,T),vbgPage3(A,3,T),vbgPage4(A,4,T),vbgPage5(A,5,T)];
+  MAPONLY=false; PDFPAGES=pages; const per=S.year==="all"?`${YEARS[0]}-${YEARS[YEARS.length-1]}`:S.year;
+  PDFNAME=`informe-consolidado-vbg-narino-${per}.pdf`;
+  $("#pmKicker").textContent="Informe consolidado departamental"; $("#pmTitle").textContent=`Violencias basadas en género · ${A[1].period} (${pages.length} páginas)`;
+  $("#pmPages").innerHTML=""; for(const p of pages){ const im=new Image(); im.src=p.toDataURL("image/jpeg",.8); im.alt="Página del informe consolidado"; $("#pmPages").appendChild(im); }
+  $("#pmPng").hidden=true; $("#pmStatus").textContent=""; openModal("#pdfModal");
+  } finally { S.year=_y; }
+}
+/* selector de año del informe consolidado */
+function openConsolidado(){
+  const ys=[...new Set([...YEARS,...DUP_YEARS])].sort().reverse(), sel=$("#cnsYear");
+  sel.innerHTML=`<option value="all">Acumulado ${ys[ys.length-1]}–${ys[0]}</option>`+ys.map(y=>`<option value="${y}">${y}${y===CUR_YEAR?" (año en curso)":""}</option>`).join("");
+  sel.value=S.year&&(S.year==="all"||ys.includes(S.year))?S.year:"all"; consHint(); $("#cnsStatus").textContent=""; openModal("#consModal");
+}
+function consHint(){ const y=$("#cnsYear").value, _y=S.year; S.year=y;
+  try{ $("#cnsHint").textContent=`Policía: corte ${corteStr(false,y)} · Dupla Violeta: ${y==="all"?DUP_YEARS.map(v=>`${v} ${D.dup.cobertura[v]||"sin mes"}`).join("; "):(D.dup.cobertura[y]||"sin atenciones en ese año")}.`; } finally{ S.year=_y; } }
+$("#cnsYear").onchange=consHint;
+$("#cnsGo").onclick=async()=>{ const y=$("#cnsYear").value; $("#cnsStatus").textContent="Preparando…"; $("#consModal").hidden=true; await buildConsolidado(y); };
+/* ---- sección en la página: consolidado departamental ---- */
+function consolidado(){
+  const box=$("#vbgBox"), head=$("#vbgHead"); const on=!S.sel; box.hidden=!on; head.hidden=!on; if(!on) return;
+  const A=vbgAll(), pol=A.find(a=>!a.dupla), du=A.find(a=>a.dupla);
+  $("#vbgPeriod").textContent=`${pol.period} · Policía: corte ${pol.corte} · Dupla: corte ${du.corte}`;
+  const rows=A.map(a=>`<tr><td><span class="vdot" style="background:${a.pal[3]}"></span><button class="linkbtn" type="button" data-ind="${a.id}">${esc(a.short)}</button></td><td>${esc(a.src)}</td><td class="n"><b>${fmt(a.tot)}</b></td><td class="n">${a.nm} / 64</td><td>${a.top[0]?`${esc(a.top[0].name)} <span class="mut">(${fmt(a.top[0].casos)})</span>`:"—"}</td><td>${a.subs[0]&&a.subs[0].casos?`${esc(a.subs[0].name)} <span class="mut">(${fmt(a.subs[0].casos)})</span>`:"—"}</td><td class="n">${a.tot?pctN(a.pasto,a.tot)+" %":"—"}</td><td>${esc(a.corte)}</td></tr>`).join("");
+  box.innerHTML=`<div class="vbgkpis">${A.map(a=>`<div class="vk" style="--vk:${a.pal[4]}"><span class="l">${esc(a.short)}</span><span class="v">${fmt(a.tot)}</span><span class="s">${a.dupla?"atenciones":"casos"} · ${a.nm} municipios</span></div>`).join("")}</div>
+    <div class="card vbgcard"><div class="tscroll"><table class="vbgt"><thead><tr><th>Tipo de violencia</th><th>Fuente</th><th class="n">Casos</th><th class="n">Municipios</th><th>Municipio con más casos</th><th>Subregión con más casos</th><th class="n">Pasto</th><th>Fecha de corte</th></tr></thead><tbody>${rows}</tbody></table></div>
+    <ul class="vbgread">${vbgReading(A).map(s=>`<li>${esc(s)}</li>`).join("")}</ul><p class="hint">${VBG_NOTE}</p>
+    <div><button class="btn hot" type="button" id="vbgPdf"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/></svg>Descargar informe consolidado por año (PDF)</button></div></div>`;
+  $("#vbgPdf").onclick=openConsolidado;
+  for(const b of box.querySelectorAll("[data-ind]")) b.onclick=()=>{ S.ind=b.dataset.ind; S.sel=null; render(); $(".stage").scrollIntoView({behavior:"smooth",block:"start"}); };
+}
+$("#btnConsolidado").onclick=openConsolidado;
+
 /* ================= CARGA DE LA MATRIZ ESTANDARIZADA (Dupla Violeta) ================= */
 const nrm=s=>String(s??"").normalize("NFD").replace(/[̀-ͯ]/g,"").toLowerCase().replace(/[^a-z0-9]+/g," ").trim();
 const MUN_BY_NAME=Object.fromEntries(MUN.map((m,i)=>[nrm(m.name),i])); MUN_BY_NAME["tumaco"]=MUN.findIndex(m=>m.code==="52835");
 const MUN_BY_CODE=Object.fromEntries(MUN.map((m,i)=>[m.code,i]));
 const yes=v=>/^(si|s|x|1|true)$/.test(nrm(v));
-const ALIAS={"hogar o vivienda":"vivienda","hotel bar o discoteca":"bar discoteca u hotel","lugar de trabajo o institucion":"lugar de trabajo","zona rural":"zona rural finca o campo","familiar":"otro familiar","conocido":"conocido o vecino"};
+const ALIAS={"hogar o vivienda":"vivienda","hotel bar o discoteca":"bar discoteca u hotel","lugar de trabajo o institucion":"lugar de trabajo","zona rural":"zona rural finca o campo","familiar":"otro familiar"};
+/* relación con la víctima desagregada (matriz v2) -> grupos del geovisor */
+Object.assign(ALIAS,{"esposo o companero permanente": "pareja", "novio": "pareja", "padre": "padre o padrastro", "padrastro": "padre o padrastro", "madre": "madre o madrastra", "madrastra": "madre o madrastra", "hijo": "hijo o hija", "hija": "hijo o hija", "hermano": "hermano o hermana", "hermana": "hermano o hermana", "abuelo": "otro familiar", "abuela": "otro familiar", "tio": "otro familiar", "tia": "otro familiar", "primo": "otro familiar", "prima": "otro familiar", "cunado": "otro familiar", "cunada": "otro familiar", "suegro": "otro familiar", "suegra": "otro familiar", "amigo": "conocido o vecino", "conocido": "conocido o vecino", "vecino": "conocido o vecino", "companero de trabajo": "conocido o vecino", "jefe o empleador": "jefe docente funcionario o autoridad", "docente": "jefe docente funcionario o autoridad", "funcionario publico": "jefe docente funcionario o autoridad", "miembro de la fuerza publica": "jefe docente funcionario o autoridad"});
 function idxOf(list,v,fallback){ let k=nrm(v); if(ALIAS[k]&&!list.some(x=>nrm(x)===k)) k=ALIAS[k]; if(!k) return fallback; let i=list.findIndex(x=>nrm(x)===k); if(i<0&&/^(no refiere|no reporta|sin dato)$/.test(k)) i=list.findIndex(x=>nrm(x)==="no registra"); return i<0?fallback:i; }
 function toDate(v){ if(v instanceof Date&&!isNaN(v)) return v; if(typeof v==="number"){ const d=new Date(Math.round((v-25569)*864e5)); return isNaN(d)?null:new Date(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate()); }
   const m=String(v||"").trim().match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})/); if(m) return new Date(+m[3],+m[2]-1,+m[1]);
@@ -1297,15 +1470,15 @@ function parseMatrix(rows,fileName){
     else if(fileYM){ [y0,m0]=fileYM; warns.push(`Fila ${fila}: sin fecha de atención; se asigna a ${MESES_L[m0-1]} de ${y0} por el nombre del archivo`); }
     else { errs.push(`Fila ${fila}: fecha de atención vacía o no válida (o nombre el archivo MATRIZ_DUPLA_AAAA_MM)`); return; }
     if(mi==null){ errs.push(`Fila ${fila}: municipio «${g("municipio")}» no reconocido`); return; }
-    const bits=(yes(g("v_psicologica"))?1:0)|(yes(g("v_fisica"))?2:0)|(yes(g("v_sexual"))?4:0)|(yes(g("v_economica"))?8:0)|(yes(g("intento_feminicidio"))?16:0)|(yes(g("feminicidio"))?32:0);
-    if(!(bits&15)) warns.push(`Fila ${fila}: no tiene ningún tipo de violencia marcado`);
+    const bits=(yes(g("v_psicologica"))?1:0)|(yes(g("v_fisica"))?2:0)|(yes(g("v_sexual"))?4:0)|(yes(g("v_economica"))?8:0)|(yes(g("intento_feminicidio"))?16:0)|(yes(g("feminicidio"))?32:0)|(yes(g("v_intrafamiliar"))?64:0);
+    if(!(bits&79)) warns.push(`Fila ${fila}: no tiene ningún tipo de violencia marcado`);
     const og=nrm(g("orientacion_sexual")), gen=nrm(g("identidad_genero"));
     const lgbt=/lesbiana|gay|homosexual|bisexual|otra/.test(og)||/trans|no binaria/.test(gen);
     const pb=(yes(g("victima_conflicto"))?1:0)|(yes(g("lideresa"))?2:0)|(yes(g("migrante"))?4:0)|(yes(g("discapacidad"))?8:0)|(lgbt?16:0);
     const rut=(yes(g("rem_comisaria"))?1:0)|(yes(g("rem_fiscalia"))?2:0)|(yes(g("rem_salud"))?4:0)|(yes(g("rem_policia"))?8:0)|(yes(g("rem_defensoria"))?16:0);
     let corr=-1; if(MUN[mi].code==="52001"){ for(const col of ["corregimiento","vereda","barrio_vereda_corregimiento"]){ const k=nrm(g(col)); if(k){ corr=D.dup.corr.findIndex(c=>nrm(c)===k); if(corr>=0) break; } } }
     const edad=g("edad"); if(edad!==""&&(+edad<0||+edad>110)) warns.push(`Fila ${fila}: edad fuera de rango`);
-    recs.push([mi,y0,m0,dow,cursoOf(edad),bits,idxOf(L,g("lugar_hechos"),NR(L)),idxOf(A,g("agresor"),NR(A)),idxOf(E,g("etnia"),NR(E)),pb,corr,srcI,rut]);
+    recs.push([mi,y0,m0,dow,cursoOf(edad),bits,idxOf(L,g("lugar_hechos"),NR(L)),idxOf(A,(g("relacion_agresor_victima")||g("agresor")),NR(A)),idxOf(E,g("etnia"),NR(E)),pb,corr,srcI,rut]);
   });
   return {recs,errs,warns};
 }

@@ -58,7 +58,7 @@ code{font:500 13px "IBM Plex Mono",monospace;background:var(--sunk);padding:1px 
   <section class="card">
     <span class="k">1 · Dupla Violeta</span>
     <h2>Actualizar atenciones de la Dupla Violeta</h2>
-    <p class="src">Use la matriz estandarizada (<code>MATRIZ_DUPLA_AAAA.xlsx</code>). Los meses que trae la matriz reemplazan los mismos meses publicados; los demás meses no cambian. Puede elegir varios archivos a la vez.</p>
+    <p class="src">Use la matriz estandarizada (<code>MATRIZ_DUPLA_AAAA.xlsx</code>). Los meses que trae la matriz reemplazan los mismos meses publicados; los demás meses no cambian. Puede elegir varios archivos a la vez. Las columnas reservadas (nombre, cédula, noticia criminal y descripción de la atención) no se leen: el archivo que se publica solo trae conteos.</p>
     <div class="row">
       <label class="btn solid" for="fDupla">Elegir matriz de la Dupla (.xlsx)</label><input type="file" id="fDupla" accept=".xlsx" multiple>
       <label class="btn" for="fDuplaBase" title="Solo si abrió esta página desde el computador y no carga sola">Elegir dupla.json actual</label><input type="file" id="fDuplaBase" accept=".json">
@@ -70,9 +70,9 @@ code{font:500 13px "IBM Plex Mono",monospace;background:var(--sunk);padding:1px 
   <section class="card">
     <span class="k">2 · Policía Nacional</span>
     <h2>Actualizar casos de la Policía</h2>
-    <p class="src">Use la matriz completa que envía la Policía (un archivo con una hoja por delito: homicidios, feminicidios, lesiones personales, delitos sexuales, violencia intrafamiliar, hurto a personas, hurto motocicletas, hurto automotores, extorsión, secuestros y amenazas; se aceptan variantes del nombre con o sin tilde). La matriz nueva reemplaza por completo los datos publicados de la Policía. Se publica solo el resumen por municipio, año, mes, día, franja, curso de vida, sitio, arma y localidad, nunca la matriz con las filas.</p>
+    <p class="src">Use la matriz completa que envía la Policía (un archivo con una hoja por delito: homicidios, feminicidios, lesiones personales, delitos sexuales, violencia intrafamiliar, hurto a personas, hurto motocicletas, hurto automotores, extorsión, secuestros y amenazas; se aceptan variantes del nombre con o sin tilde). Si la Policía envía solo un corte nuevo (por ejemplo, 2026 a octubre), elija a la vez la matriz histórica y el corte nuevo: para cada delito y año se usa el archivo con la fecha más reciente, y los demás años se conservan del archivo histórico. Se publica solo el resumen por municipio, año, mes, día, franja, curso de vida, sitio, arma y localidad, nunca la matriz con las filas.</p>
     <div class="row">
-      <label class="btn solid" for="fPol">Elegir matriz de la Policía (.xlsx)</label><input type="file" id="fPol" accept=".xlsx">
+      <label class="btn solid" for="fPol">Elegir matriz de la Policía (.xlsx)</label><input type="file" id="fPol" accept=".xlsx" multiple>
       <button class="btn hot" type="button" id="bPol" disabled>Descargar policia.json</button>
     </div>
     <div class="status" id="sPol"></div>
@@ -158,7 +158,9 @@ async function getJSON(p){ const r=await fetch(p,{cache:"no-cache"}); if(!r.ok) 
 /* ================= DUPLA ================= */
 let DUP_OUT=null;
 const yes=v=>/^(si|s|x|1|true)$/.test(nrm(v));
-const ALIAS={"hogar o vivienda":"vivienda","hotel bar o discoteca":"bar discoteca u hotel","lugar de trabajo o institucion":"lugar de trabajo","zona rural":"zona rural finca o campo","familiar":"otro familiar","conocido":"conocido o vecino"};
+const ALIAS={"hogar o vivienda":"vivienda","hotel bar o discoteca":"bar discoteca u hotel","lugar de trabajo o institucion":"lugar de trabajo","zona rural":"zona rural finca o campo","familiar":"otro familiar"};
+/* relación con la víctima desagregada (matriz v2) -> grupos del geovisor */
+Object.assign(ALIAS,{"esposo o companero permanente": "pareja", "novio": "pareja", "padre": "padre o padrastro", "padrastro": "padre o padrastro", "madre": "madre o madrastra", "madrastra": "madre o madrastra", "hijo": "hijo o hija", "hija": "hijo o hija", "hermano": "hermano o hermana", "hermana": "hermano o hermana", "abuelo": "otro familiar", "abuela": "otro familiar", "tio": "otro familiar", "tia": "otro familiar", "primo": "otro familiar", "prima": "otro familiar", "cunado": "otro familiar", "cunada": "otro familiar", "suegro": "otro familiar", "suegra": "otro familiar", "amigo": "conocido o vecino", "conocido": "conocido o vecino", "vecino": "conocido o vecino", "companero de trabajo": "conocido o vecino", "jefe o empleador": "jefe docente funcionario o autoridad", "docente": "jefe docente funcionario o autoridad", "funcionario publico": "jefe docente funcionario o autoridad", "miembro de la fuerza publica": "jefe docente funcionario o autoridad"});
 function idxOf(list,v,fb){ let k=nrm(v); if(ALIAS[k]&&!list.some(x=>nrm(x)===k)) k=ALIAS[k]; if(!k) return fb; let i=list.findIndex(x=>nrm(x)===k); if(i<0&&/^(no refiere|no reporta|sin dato)$/.test(k)) i=list.findIndex(x=>nrm(x)==="no registra"); return i<0?fb:i; }
 const cursoOf=e=>e===""||e==null||isNaN(+e)?6:(+e<=5?0:+e<=11?1:+e<=17?2:+e<=28?3:+e<=59?4:5);
 function parseDupla(rows,fileName,D){
@@ -173,12 +175,12 @@ function parseDupla(rows,fileName,D){
     if(mi==null){ errs.push(`Fila ${fila}: municipio «${g("municipio")}» no reconocido`); return; }
     const cc=String(g("codigo_caso")).trim(); if(cc){ if(codes.has(cc)) warns.push(`Fila ${fila}: código de caso repetido ${cc}`); codes.add(cc); }
     const v=String(g("validacion")).trim(); if(v&&v!=="OK") warns.push(`Fila ${fila}: la matriz dice «${v}»`);
-    const bits=(yes(g("v_psicologica"))?1:0)|(yes(g("v_fisica"))?2:0)|(yes(g("v_sexual"))?4:0)|(yes(g("v_economica"))?8:0)|(yes(g("intento_feminicidio"))?16:0)|(yes(g("feminicidio"))?32:0);
+    const bits=(yes(g("v_psicologica"))?1:0)|(yes(g("v_fisica"))?2:0)|(yes(g("v_sexual"))?4:0)|(yes(g("v_economica"))?8:0)|(yes(g("intento_feminicidio"))?16:0)|(yes(g("feminicidio"))?32:0)|(yes(g("v_intrafamiliar"))?64:0);
     const og=nrm(g("orientacion_sexual")), gen=nrm(g("identidad_genero")), lg=/lesbiana|gay|homosexual|bisexual|otra/.test(og)||/trans|no binaria/.test(gen);
     const pb=(yes(g("victima_conflicto"))?1:0)|(yes(g("lideresa"))?2:0)|(yes(g("migrante"))?4:0)|(yes(g("discapacidad"))?8:0)|(lg?16:0);
     const rut=(yes(g("rem_comisaria"))?1:0)|(yes(g("rem_fiscalia"))?2:0)|(yes(g("rem_salud"))?4:0)|(yes(g("rem_policia"))?8:0)|(yes(g("rem_defensoria"))?16:0);
     let corr=-1; if(MUN[mi].code==="52001") for(const c of ["corregimiento","vereda","barrio_vereda_corregimiento"]){ const k=nrm(g(c)); if(k){ corr=D.corr.findIndex(x=>nrm(x)===k); if(corr>=0) break; } }
-    recs.push([mi,y0,m0,dow,cursoOf(g("edad")),bits,idxOf(D.lugar,g("lugar_hechos"),NR(D.lugar)),idxOf(D.agresor,g("agresor"),NR(D.agresor)),idxOf(D.etnia,g("etnia"),NR(D.etnia)),pb,corr,srcI,rut]);
+    recs.push([mi,y0,m0,dow,cursoOf(g("edad")),bits,idxOf(D.lugar,g("lugar_hechos"),NR(D.lugar)),idxOf(D.agresor,(g("relacion_agresor_victima")||g("agresor")),NR(D.agresor)),idxOf(D.etnia,g("etnia"),NR(D.etnia)),pb,corr,srcI,rut]);
   });
   return {recs,errs,warns};
 }
@@ -199,9 +201,9 @@ async function runDupla(files){
     D.cobertura={}; for(const y of Object.keys(cov).sort()){ const ms=[...cov[y].m].sort((a,b)=>a-b); D.cobertura[y]=(ms.length?mesesTxt(ms):"sin mes")+(ms.length&&cov[y].sin?", más atenciones sin mes":""); }
     D.n=D.r.length; D.actualizado=new Date().toISOString().slice(0,10);
     DUP_OUT=D; $("#bDupla").disabled=false;
-    const per=[...months].sort().map(k=>{ const rs=all.filter(x=>x[1]*100+x[2]===k), t=b=>rs.filter(x=>x[5]&b).length; return `<tr><td>${MESES[k%100-1]} ${Math.floor(k/100)}</td><td>${rs.length}</td><td>${t(1)}</td><td>${t(2)}</td><td>${t(4)}</td><td>${t(16)}</td><td>${new Set(rs.map(x=>x[0])).size}</td></tr>`; }).join("");
+    const per=[...months].sort().map(k=>{ const rs=all.filter(x=>x[1]*100+x[2]===k), t=b=>rs.filter(x=>x[5]&b).length; return `<tr><td>${MESES[k%100-1]} ${Math.floor(k/100)}</td><td>${rs.length}</td><td>${t(1)}</td><td>${t(2)}</td><td>${t(4)}</td><td>${t(64)}</td><td>${t(16)}</td><td>${new Set(rs.map(x=>x[0])).size}</td></tr>`; }).join("");
     st.innerHTML=`<p class="okk">Listo para publicar: ${fmt(all.length)} atenciones de ${names.map(esc).join(", ")}.</p>
-      <div class="tbl"><table><tr><th>Mes</th><th>Atenciones</th><th>Psicológica</th><th>Física</th><th>Sexual</th><th>Intento de feminicidio</th><th>Municipios</th></tr>${per}</table></div>
+      <div class="tbl"><table><tr><th>Mes</th><th>Atenciones</th><th>Psicológica</th><th>Física</th><th>Sexual</th><th>Intrafamiliar</th><th>Intento de feminicidio</th><th>Municipios</th></tr>${per}</table></div>
       <p>Total publicado después de la actualización: <b>${fmt(D.r.length)}</b> atenciones (antes ${fmt(before)}; se reemplazaron ${fmt(before-kept.length)} de los mismos meses).</p>`+
       (errs.length?`<p class="warn">${errs.length} ${errs.length===1?"fila no se incluyó":"filas no se incluyeron"}:</p><ul>${errs.slice(0,12).map(e=>`<li>${esc(e)}</li>`).join("")}${errs.length>12?`<li>y ${errs.length-12} más</li>`:""}</ul>`:"")+
       (warns.length?`<p class="warn">${warns.length} ${warns.length===1?"advertencia":"advertencias"} (se incluyeron; conviene corregir la matriz):</p><ul>${warns.slice(0,12).map(e=>`<li>${esc(e)}</li>`).join("")}${warns.length>12?`<li>y ${warns.length-12} más</li>`:""}</ul>`:"")+
@@ -220,7 +222,9 @@ const SHEET_RX=[[/feminicid/,"feminicidio"],[/homicid/,"homicidio"],[/lesion/,"l
 const sheetKey=n=>{ const k=nrm(n); if(KEYS[k]) return KEYS[k]; for(const [rx,v] of SHEET_RX) if(rx.test(k)) return v; return null; };
 /* encabezados normalizados: sin tildes, mayúsculas, espacios simples ("DÍA"/"DIA" -> "DIA", "AÑO" -> "ANO", "TOTAL\nCASOS" -> "TOTAL CASOS") */
 const canonRow=o=>{ const r={}; for(const k in o){ const c=nrm(k).toUpperCase(); if(!(c in r)) r[c]=o[k]; } return r; };
-const MALIAS={"magui payan":"magui","cuaspud":"cuaspud carlosama","tumaco":"san andres de tumaco"};
+const MALIAS={"magui payan":"magui","cuaspud":"cuaspud carlosama","tumaco":"san andres de tumaco",
+  /* corregimientos y veredas de Pasto escritos en la columna MUNICIPIO */ "catambuco":"pasto","botanilla":"pasto","el encano":"pasto","genoy":"pasto","obonuco":"pasto","la laguna":"pasto","cabrera":"pasto","mapachico":"pasto","jongovito":"pasto","gualmatan pasto":"pasto","mocondino":"pasto","jamondino":"pasto","buesaquillo":"pasto","morasurco":"pasto","la caldera":"pasto","el socorro":"pasto","santa barbara pasto":"pasto","san fernando":"pasto"};
+const CORR_MUN=new Set(["catambuco","botanilla","el encano","genoy","obonuco","la laguna","cabrera","mapachico","jongovito","mocondino","jamondino","buesaquillo","morasurco","la caldera","el socorro","san fernando"]);
 const nlet=s=>String(s??"").normalize("NFD").replace(/[̀-ͯ]/g,"").toLowerCase().replace(/\(ct\)/g,"").replace(/[^a-z ]/g," ").split(/\s+/).filter(Boolean).join(" ");
 const NICE={"vias publicas":"Vías públicas","casas de habitacion":"Casas de habitación","dentro de la vivienda":"Dentro de la vivienda","establecimiento educativo":"Establecimiento educativo","establecimiento de salud":"Establecimiento de salud","hoteles, residencias, y similares":"Hoteles y residencias","entidad publica / estatal":"Entidad pública o estatal","establecimiento publico":"Establecimiento público","fincas y similares":"Fincas","establecimiento de comercio":"Establecimiento de comercio","bares, cantinas y similares":"Bares y cantinas","carceles":"Cárceles","plazas de mercado":"Plazas de mercado","lugar de trabajo":"Lugar de trabajo","callejon":"Callejón","frente a residencias - via publica":"Frente a residencias","frente a almacen - via publica":"Frente a almacén","sobre anden - via publica":"Sobre andén","terminal de transportes":"Terminal de transportes","rios":"Ríos","resguardo indígena":"Resguardo indígena","otro":"Otro","no registra":"No registra","arma de fuego":"Arma de fuego","arma blanca / cortopunzante":"Arma blanca o cortopunzante","contundentes":"Contundentes","sin empleo de armas":"Sin empleo de armas","escopolamina":"Escopolamina","llamada telefonica":"Llamada telefónica","artefacto explosivo/carga dinamita":"Artefacto explosivo","factor de oportunidad":"Factor de oportunidad","violacion de cerradura":"Violación de cerradura","engaño":"Engaño","ciber extorsion":"Ciberextorsión","redes sociales":"Redes sociales","carta extorsiva":"Carta extorsiva","clasica":"Clásica","carcelaria":"Carcelaria"};
 const nice=s=>{ s=String(s??"").trim().toLowerCase(); if(["nan","","none"].includes(s)) return "No registra"; return NICE[s]||(s.charAt(0).toUpperCase()+s.slice(1)); };
@@ -243,25 +247,47 @@ function classify(raw,code){
   const key=s.replace(PREF,"").trim(); if(key.length<2) return null; return [t,key];
 }
 function horaOf(v){ if(typeof v==="number"){ const fr=v%1; const mins=Math.round(fr*1440); const h=Math.floor(mins/60)%24; return (h===0||h===12)?-1:h; } return -1; }
-async function runPol(file){
+async function runPol(files){
+  files=[].concat(files);
   const st=$("#sPol"); $("#bPol").disabled=true; st.textContent="Leyendo la matriz de la Policía (puede tardar unos segundos)…";
   if(!MUN){ st.innerHTML=`<span class="warn">No se cargaron los municipios.</span>`; return; }
   try{
-    const X=await readXlsx(await file.arrayBuffer());
     const codeBy={}; MUN.forEach(m=>codeBy[nlet(m.name)]=m.code); for(const a in MALIAS) codeBy[a]=codeBy[MALIAS[a]];
     const codeOf=n=>{ const k=nlet(n); return codeBy[MALIAS[k]||k]||null; };
     const MIDX=Object.fromEntries(MUN.map((m,i)=>[m.code,i]));
-    const police={}, prof={}, locRaw={}, report=[], unk={}, yearsAll=new Set();
-    for(const sh of X.sheets){
-      const key=sheetKey(sh.name); if(!key||police[key]){ report.push({hoja:sh.name,omitida:true}); continue; }
-      st.textContent=`Procesando ${sh.name}…`; await new Promise(r=>setTimeout(r,0));
-      const rows0=await X.rowsOf(sh);
-      const rows=[]; let tot=0, excl=0;
-      for(const o0 of rows0){ const o=canonRow(o0); const mun=o["MUNICIPIO"]; if(mun===""||mun==null) continue;
-        let n=parseFloat(o["TOTAL CASOS"]); if(!isFinite(n)) n=1; n=Math.trunc(n); tot+=n;
-        const code=codeOf(mun); if(!code){ excl+=n; unk[mun]=(unk[mun]||0)+n; continue; }
-        let yr=String(o["ANO"]??"").slice(0,4); const f=toDate(o["FECHA HECHO"]); if(!/^\d{4}$/.test(yr)&&f) yr=String(f.getFullYear()); if(!/^\d{4}$/.test(yr)) continue;
-        yearsAll.add(yr); rows.push({o,n,code,yr,f}); }
+    const police={}, prof={}, locRaw={}, report=[], unk={}, yearsAll=new Set(), omit=[];
+    /* 1) leer todos los archivos; cada archivo aporta filas por delito */
+    const FI=[];
+    for(const [fi,file] of files.entries()){
+      st.textContent=`Leyendo ${file.name}…`; await new Promise(r=>setTimeout(r,0));
+      const X=await readXlsx(await file.arrayBuffer()); const info={name:file.name,max:0,sheets:{}};
+      for(const sh of X.sheets){
+        const key=sheetKey(sh.name); if(!key||info.sheets[key]){ omit.push(`${sh.name} (${file.name})`); continue; }
+        st.textContent=`Procesando ${sh.name} · ${file.name}…`; await new Promise(r=>setTimeout(r,0));
+        const rows0=await X.rowsOf(sh); const rows=[]; let tot=0, excl=0;
+        for(const o0 of rows0){ const o=canonRow(o0); const mun=o["MUNICIPIO"]; if(mun===""||mun==null) continue;
+          let n=parseFloat(o["TOTAL CASOS"]); if(!isFinite(n)) n=1; n=Math.trunc(n); tot+=n;
+          const code=codeOf(mun); if(!code){ excl+=n; unk[mun]=(unk[mun]||0)+n; continue; } if(CORR_MUN.has(nlet(mun))&&!String(o["BARRIO"]??"").trim()) o["BARRIO"]=mun;
+          let yr=String(o["ANO"]??"").slice(0,4); const f=toDate(o["FECHA HECHO"]); if(!/^\d{4}$/.test(yr)&&f) yr=String(f.getFullYear()); if(!/^\d{4}$/.test(yr)) continue;
+          if(f&&+f>info.max) info.max=+f; rows.push({o,n,code,yr,f}); }
+        info.sheets[key]={name:sh.name,rows,tot,excl};
+      }
+      FI.push(info);
+    }
+    /* 2) por delito y año, manda el archivo con el corte más reciente (los demás años se conservan del archivo anterior) */
+    const keys=[...new Set(FI.flatMap(f=>Object.keys(f.sheets)))];
+    const KEYDATA={};
+    for(const key of keys){
+      const byYear={};
+      for(const [fi,f] of FI.entries()){ const sh=f.sheets[key]; if(!sh) continue; for(const y of new Set(sh.rows.map(r=>r.yr))){ if(byYear[y]==null||FI[byYear[y]].max<=f.max) byYear[y]=fi; } }
+      const rows=[]; let tot=0, excl=0; const src={};
+      for(const [fi,f] of FI.entries()){ const sh=f.sheets[key]; if(!sh) continue; for(const r of sh.rows) if(byYear[r.yr]===fi){ rows.push(r); tot+=r.n; } }
+      for(const y in byYear) src[y]=FI[byYear[y]].name;
+      for(const f of FI){ const sh=f.sheets[key]; if(sh) excl+=sh.excl; }
+      rows.forEach(r=>yearsAll.add(r.yr)); KEYDATA[key]={rows,tot:tot,excl,src,name:FI.map(f=>f.sheets[key]&&f.sheets[key].name).find(Boolean)};
+    }
+    for(const key of keys){
+      const {rows,src}=KEYDATA[key], sh={name:KEYDATA[key].name}, tot=KEYDATA[key].tot+KEYDATA[key].excl, excl=KEYDATA[key].excl;
       const m={}, zona={};
       for(const r of rows){ (m[r.code]=m[r.code]||{}); m[r.code][r.yr]=(m[r.code][r.yr]||0)+r.n;
         const z=String(r.o["ZONA"]??"").toLowerCase().trim()||"nan"; (zona[z]=zona[z]||{}); zona[z][r.yr]=(zona[z][r.yr]||0)+r.n; }
@@ -280,13 +306,14 @@ async function runPol(file){
       // localidades
       const L={}; for(const r of rows){ const c=classify(r.o["BARRIO"],r.code); if(!c) continue; const mi=String(MIDX[r.code]); ((L[mi]=L[mi]||{})[c[1]]=L[mi][c[1]]||{t:c[0],y:{}}); L[mi][c[1]].y[r.yr]=(L[mi][c[1]].y[r.yr]||0)+r.n; }
       locRaw[key]=L;
-      report.push({hoja:sh.name,total:tot,excluidos:excl,anios:[...new Set(rows.map(r=>r.yr))].sort()});
+      report.push({hoja:sh.name,total:tot,excluidos:excl,anios:[...new Set(rows.map(r=>r.yr))].sort(),src});
     }
+    for(const o of omit) report.push({hoja:o,omitida:true});
     const years=[...yearsAll].sort(), types=["barrio","vereda","corregimiento"], loc={types,years,x:{}};
     for(const k in locRaw){ loc.x[k]={}; for(const mi in locRaw[k]){ loc.x[k][mi]={}; for(const nm in locRaw[k][mi]){ const e=locRaw[k][mi][nm]; loc.x[k][mi][nm]=[types.indexOf(e.t),...years.map(y=>e.y[y]||0)]; } } }
     if(!Object.keys(police).length){ st.innerHTML=`<span class="warn">No se encontró ninguna hoja de delitos.</span> Revise que el archivo tenga las hojas con los nombres de la Policía.`; return; }
-    POL_OUT={police,prof,loc,actualizado:new Date().toISOString().slice(0,10)}; $("#bPol").disabled=false;
-    const tb=report.filter(r=>!r.omitida).map(r=>`<tr><td>${esc(r.hoja)}</td><td>${fmt(r.total)}</td><td>${fmt(r.total-r.excluidos)}</td><td>${r.excluidos?`<span class="warn">${fmt(r.excluidos)}</span>`:"0"}</td><td>${r.anios.join(", ")}</td></tr>`).join("");
+    const cmax=Math.max(0,...FI.map(f=>f.max)); POL_OUT={police,prof,loc,corte:cmax?new Date(cmax).toISOString().slice(0,10):null,actualizado:new Date().toISOString().slice(0,10)}; $("#bPol").disabled=false;
+    const tb=report.filter(r=>!r.omitida).map(r=>`<tr><td>${esc(r.hoja)}</td><td>${fmt(r.total)}</td><td>${fmt(r.total-r.excluidos)}</td><td>${r.excluidos?`<span class="warn">${fmt(r.excluidos)}</span>`:"0"}</td><td>${r.anios.map(y=>files.length>1?`${y} <span class="src">(${esc(r.src[y]||"")})</span>`:y).join("<br>")}</td></tr>`).join("");
     const om=report.filter(r=>r.omitida).map(r=>r.hoja);
     const uk=Object.entries(unk).sort((a,b)=>b[1]-a[1]);
     st.innerHTML=`<p class="okk">Listo para publicar.</p><div class="tbl"><table><tr><th>Hoja</th><th>Casos</th><th>Ubicados en un municipio</th><th>Sin municipio reconocido</th><th>Años</th></tr>${tb}</table></div>`+
@@ -295,7 +322,7 @@ async function runPol(file){
       `<p>Descargue <code>policia.json</code> y súbalo a <code>datos/</code> en GitHub. Años publicados: ${years.join(", ")}.</p>`;
   }catch(e){ st.innerHTML=`<span class="warn">No se pudo leer:</span> ${esc(e.message||e)}`; }
 }
-$("#fPol").onchange=e=>{ const f=e.target.files[0]; if(f) runPol(f); e.target.value=""; };
+$("#fPol").onchange=e=>{ const f=[...e.target.files]; if(f.length) runPol(f); e.target.value=""; };
 $("#bPol").onclick=()=>{ if(POL_OUT) save("policia.json",POL_OUT); };
 const MUN_FALLBACK=[{"code": "52683", "name": "Sandoná", "sub": "Occidente"}, {"code": "52685", "name": "San Bernardo", "sub": "Río Mayo"}, {"code": "52687", "name": "San Lorenzo", "sub": "Juanambú"}, {"code": "52560", "name": "Potosí", "sub": "Obando"}, {"code": "52693", "name": "San Pablo", "sub": "Río Mayo"}, {"code": "52565", "name": "Providencia", "sub": "Los Abades"}, {"code": "52694", "name": "San Pedro de Cartago", "sub": "Juanambú"}, {"code": "52573", "name": "Puerres", "sub": "Obando"}, {"code": "52699", "name": "Santacruz", "sub": "Los Abades"}, {"code": "52585", "name": "Pupiales", "sub": "Obando"}, {"code": "52678", "name": "Samaniego", "sub": "Los Abades"}, {"code": "52207", "name": "Consacá", "sub": "Occidente"}, {"code": "52210", "name": "Contadero", "sub": "Obando"}, {"code": "52215", "name": "Córdoba", "sub": "Obando"}, {"code": "52001", "name": "Pasto", "sub": "Centro"}, {"code": "52019", "name": "Albán", "sub": "Río Mayo"}, {"code": "52022", "name": "Aldana", "sub": "Obando"}, {"code": "52224", "name": "Cuaspud Carlosama", "sub": "Obando"}, {"code": "52036", "name": "Ancuya", "sub": "Occidente"}, {"code": "52051", "name": "Arboleda", "sub": "Juanambú"}, {"code": "52083", "name": "Belén", "sub": "Río Mayo"}, {"code": "52110", "name": "Buesaco", "sub": "Juanambú"}, {"code": "52203", "name": "Colón", "sub": "Río Mayo"}, {"code": "52480", "name": "Nariño", "sub": "Centro"}, {"code": "52506", "name": "Ospina", "sub": "La Sabana"}, {"code": "52720", "name": "Sapuyes", "sub": "La Sabana"}, {"code": "52786", "name": "Taminango", "sub": "La Cordillera"}, {"code": "52788", "name": "Tangua", "sub": "Centro"}, {"code": "52240", "name": "Chachagüí", "sub": "Centro"}, {"code": "52254", "name": "El Peñol", "sub": "Guambuyaco"}, {"code": "52258", "name": "El Tablón de Gómez", "sub": "Río Mayo"}, {"code": "52838", "name": "Túquerres", "sub": "La Sabana"}, {"code": "52411", "name": "Linares", "sub": "Occidente"}, {"code": "52885", "name": "Yacuanquer", "sub": "Centro"}, {"code": "52435", "name": "Mallama", "sub": "Piedemonte Costero"}, {"code": "52378", "name": "La Cruz", "sub": "Río Mayo"}, {"code": "52381", "name": "La Florida", "sub": "Centro"}, {"code": "52260", "name": "El Tambo", "sub": "Guambuyaco"}, {"code": "52287", "name": "Funes", "sub": "Obando"}, {"code": "52317", "name": "Guachucal", "sub": "Obando"}, {"code": "52399", "name": "La Unión", "sub": "Juanambú"}, {"code": "52320", "name": "Guaitarilla", "sub": "La Sabana"}, {"code": "52405", "name": "Leiva", "sub": "La Cordillera"}, {"code": "52323", "name": "Gualmatán", "sub": "Obando"}, {"code": "52352", "name": "Iles", "sub": "Obando"}, {"code": "52354", "name": "Imués", "sub": "La Sabana"}, {"code": "52356", "name": "Ipiales", "sub": "Obando"}, {"code": "52227", "name": "Cumbal", "sub": "Obando"}, {"code": "52233", "name": "Cumbitara", "sub": "La Cordillera"}, {"code": "52256", "name": "El Rosario", "sub": "La Cordillera"}, {"code": "52385", "name": "La Llanada", "sub": "Guambuyaco"}, {"code": "52418", "name": "Los Andes", "sub": "Guambuyaco"}, {"code": "52540", "name": "Policarpa", "sub": "La Cordillera"}, {"code": "52612", "name": "Ricaurte", "sub": "Piedemonte Costero"}, {"code": "52079", "name": "Barbacoas", "sub": "Telembí"}, {"code": "52250", "name": "El Charco", "sub": "Sanquianga"}, {"code": "52390", "name": "La Tola", "sub": "Sanquianga"}, {"code": "52427", "name": "Magüí", "sub": "Telembí"}, {"code": "52473", "name": "Mosquera", "sub": "Sanquianga"}, {"code": "52490", "name": "Olaya Herrera", "sub": "Sanquianga"}, {"code": "52520", "name": "Francisco Pizarro", "sub": "Pacífico Sur"}, {"code": "52621", "name": "Roberto Payán", "sub": "Telembí"}, {"code": "52696", "name": "Santa Bárbara", "sub": "Sanquianga"}, {"code": "52835", "name": "San Andrés de Tumaco", "sub": "Pacífico Sur"}];
 </script>

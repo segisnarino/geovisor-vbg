@@ -256,6 +256,20 @@ button.bar:hover .nm{color:var(--violeta)}
 .split{display:flex;height:16px;border-radius:5px;overflow:hidden;background:var(--sunk)}
 .split span{display:block;height:100%}
 .split-l{display:flex;justify-content:space-between;font-size:13px;gap:8px}
+/* consolidado VBG */
+#vbgHead{margin-top:26px}
+.vbgkpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;margin-bottom:14px}
+.vk{background:var(--vk);color:#FFFFFF;border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.vk .l{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;opacity:.9}
+.vk .v{font-family:var(--mono);font-size:30px;font-weight:700;font-variant-numeric:tabular-nums}
+.vk .s{font-size:12.5px;opacity:.85}
+.vbgcard{padding:6px 0 16px;display:flex;flex-direction:column;gap:12px}
+.vbgcard>div:last-child,.vbgcard>.hint,.vbgread{padding:0 16px}
+.vbgt .vdot{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:8px;vertical-align:-1px}
+.vbgt .mut{color:var(--muted)}
+.vbgt td{vertical-align:top}
+.vbgread{margin:0;padding-left:34px!important;display:grid;gap:6px;font-size:14px;max-width:110ch}
+@media (max-width:900px){.vbgkpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .tablebox{margin-top:16px}
 .tablebox summary{cursor:pointer;font-weight:600;padding:14px 16px}
 .tscroll{overflow-x:auto;padding:0 16px 16px}
@@ -373,6 +387,7 @@ button,input,select{font:inherit}
     </div>
     <div class="actions">
       <button class="btn hot" type="button" id="btnReportPdf"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/></svg>Generar reporte</button>
+      <button class="btn hot" type="button" id="btnConsolidado"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 15v3M11 11v7M15 7v11M19 12v6"/></svg>Informe consolidado VBG</button>
       <button class="btn hot" type="button" id="btnMonthly"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>Informe mensual Dupla</button>
       <button class="btn ghost" type="button" id="btnMapPdf"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v7H6z"/></svg>Imprimir mapa</button>
       <button class="btn ghost" type="button" id="btnCase">Reportar caso</button>
@@ -447,7 +462,7 @@ button,input,select{font:inherit}
 
   <section class="card dpanel" id="duplaPanel" hidden aria-label="Reportes de la Dupla Violeta">
     <div class="dphead"><div><span class="eyebrow">Dupla Violeta</span><h2>Reportes y actualización mensual</h2>
-      <p class="hint">1. Descargue la plantilla y diligencie el mes en la hoja MATRIZ (sin datos personales). 2. «Vista previa»: cárguela aquí para revisarla y ver su informe con el botón «Informe mensual Dupla» de la parte superior (solo en su navegador). 3. Envíela al administrador, que la publica para todos.</p></div></div>
+      <p class="hint">1. Descargue la plantilla y diligencie el mes en la hoja MATRIZ. Las columnas rojas (nombre, cédula, noticia criminal y descripción de la atención) son reservadas: el geovisor no las lee ni las publica. 2. «Vista previa»: cárguela aquí para revisarla y ver su informe con el botón «Informe mensual Dupla» de la parte superior (solo en su navegador). 3. Envíela al administrador, que la publica para todos.</p></div></div>
     <div class="dpbtns">
       <button class="btn" type="button" id="dpTemplate"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>Descargar plantilla</button>
       <label class="btn solid" for="dpFile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21V9M7 14l5-5 5 5M5 3h14"/></svg>Vista previa de la matriz</label>
@@ -467,6 +482,9 @@ button,input,select{font:inherit}
     <div class="card"><span class="eyebrow" id="trendTitle">Casos por año</span><div class="trend" id="panoTrend"></div></div>
     <div class="card"><span class="eyebrow" id="splitTitle">Zona del hecho</span><div id="panoSplit"></div></div>
   </div>
+
+  <div class="section-h" id="vbgHead"><h2>Consolidado de violencias basadas en género</h2><span class="eyebrow" id="vbgPeriod"></span></div>
+  <div class="vbg" id="vbgBox"></div>
 
   <details class="card tablebox" id="tableBox">
     <summary>Tabla de datos por municipio</summary>
@@ -529,6 +547,16 @@ button,input,select{font:inherit}
     <div class="row"><span class="status" id="mmStatus"></span><button class="btn" type="button" data-close>Cancelar</button><button class="btn solid" type="button" id="mmGo">Generar informe</button></div>
   </div>
 </div>
+<div class="overlay" id="consModal" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="cnsTitle">
+    <span class="eyebrow">Departamento de Nariño</span>
+    <h2 id="cnsTitle">Informe consolidado de violencias basadas en género</h2>
+    <p style="margin:0;font-size:14px">PDF de 5 páginas con la Dupla Violeta y los delitos de la Policía (violencia sexual, feminicidio, lesiones personales y violencia intrafamiliar): resumen, mapas, tabla municipal, perfil y subregiones.</p>
+    <label class="field"><span>Año</span><select id="cnsYear"></select></label>
+    <p class="hint" id="cnsHint"></p>
+    <div class="row"><span class="status" id="cnsStatus"></span><button class="btn" type="button" data-close>Cancelar</button><button class="btn solid" type="button" id="cnsGo">Generar informe</button></div>
+  </div>
+</div>
 <div class="overlay" id="pdfModal" hidden>
   <div class="modal wide" role="dialog" aria-modal="true" aria-labelledby="pmTitle">
     <span class="eyebrow" id="pmKicker">Vista previa</span>
@@ -555,7 +583,7 @@ button,input,select{font:inherit}
     const nk=s=>String(s||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().trim();
     const pts=ins.features.filter(f=>f.geometry&&TIP[nk(f.properties.tipo)]).map(f=>{ const p=f.properties; return {t:TIP[nk(p.tipo)],c:String(p.cod_dane),n:p.nombre||"",a:p.direccion||"",p:p.telefono||"",h:p.horario||"",e:p.correo||"",u:String(p.servicios||"").split(";").map(s=>s.trim()).filter(Boolean),ll:f.geometry.coordinates.slice(0,2),ap:/^s/i.test(p.ubicacion_aproximada||"")}; });
     window.__D={config:cfg,munis,ctx:lim.contexto.map(c=>({name:c.nombre,code:c.cod_dpto,g:c.coordenadas})),sublines:lim.subregiones,deptline:lim.departamento,
-      police:pol.police,prof:pol.prof,loc:pol.loc,dup,
+      police:pol.police,prof:pol.prof,loc:pol.loc,polCorte:pol.corte||null,dup,
       capas:{data:{veredas:capa(cVer),comunas:capa(cCom),corregimientos:capa(cCp,p=>p.codigo||null).concat(capa(cCorrP,()=>"poly")),barrios:capa(cBar,p=>p.comuna!=null?String(p.comuna):null)},src:cfg.fuentes_capas||{}},
       inst:{pts,src:cfg.fuentes_instituciones||{}}};
     const s=document.createElement("script"); s.src="geovisor.js?v="+encodeURIComponent(cfg.actualizado||"1"); s.onerror=()=>{ document.getElementById("loadingMsg").textContent="No se pudo cargar geovisor.js"; }; document.body.appendChild(s);
