@@ -1206,7 +1206,7 @@ function monthlyPages(y,m,code){ const _pk=PALK; PALK="dupla"; try{ return month
 function monthlyPagesInner(y,m,code){
   const o=monthStats(y,m,code), prevM=monthsAvail().find(a=>a.y*100+a.m<y*100+m), prev=prevM?monthStats(prevM.y,prevM.m,code):null;
   const scope=code?BY[code].name:"", mesTxt=`${MES_L_CAP[m-1]} de ${y}`, sub=`${code?scope+" · ":"Departamento de Nariño · "}Atenciones de la Dupla Violeta · ${mesTxt}`;
-  const srcTxt=[...o.src].map(s=>SRC_LBL[s]||(String(s).startsWith("carga:")?"Matriz estandarizada "+String(s).slice(6):s)).join(", ")||"Matriz de atención Dupla Violeta";
+  const srcTxt=[...new Set([...o.src].map(s=>SRC_LBL[s]||(String(s).startsWith("carga:")?"Matriz estandarizada de atenciones":s)))].join(", ")||"Matriz de atención Dupla Violeta";
   const half=(PW-2*M-110)/2, x2=M+half+110, total=3, pages=[];
   const tt=TIPOS.filter(([,k])=>!(o.noSE&&(k==="sexual"||k==="eco"))&&(k!=="vif"||o.t.vif>0)).map(([l,k])=>({name:l,v:o.t[k]}));
   const topT=tt.slice().sort((a,b)=>b.v-a.v)[0];
@@ -1458,7 +1458,8 @@ function parseMatrix(rows,fileName){
   // rows: array of objects keyed by header
   const recs=[], errs=[], warns=[]; let srcI=D.dup.src.indexOf("carga:"+fileName); if(srcI<0){ D.dup.src.push("carga:"+fileName); srcI=D.dup.src.length-1; }
   const L=D.dup.lugar, A=D.dup.agresor, E=D.dup.etnia, NR=x=>x.length-1;
-  const fm=String(fileName).match(/(20\d{2})[_\-. ]?(0?[1-9]|1[0-2])(?!\d)/), fileYM=fm?[+fm[1],+fm[2]]:null;
+  const fm=String(fileName).match(/(20\d{2})[_\-. ]?(0?[1-9]|1[0-2])(?!\d)/);
+  let fileYM=fm?[+fm[1],+fm[2]]:null; if(!fileYM){ const nm=String(fileName).normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase(); const MN=["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"]; const mi=MN.findIndex(m=>nm.includes(m)||(m==="septiembre"&&nm.includes("setiembre"))); const yy=nm.match(/20\d{2}/); if(mi>=0) fileYM=[yy?+yy[0]:new Date().getFullYear(),mi+1]; }
   rows.forEach((o0,i)=>{ const o={}; for(const k in o0) o[nrm(k).replace(/ /g,"_")]=o0[k];
     const fila=i+2; const g=k=>o[k]??"";
     const hasData=Object.keys(o).some(k=>!["validacion","codigo_dane","subregion","codigo_caso","anio"].includes(k)&&String(o[k]??"").trim()!=="");
@@ -1469,14 +1470,15 @@ function parseMatrix(rows,fileName){
     if(fecha){ y0=fecha.getFullYear(); m0=fecha.getMonth()+1; dow=(fecha.getDay()+6)%7; }
     else if(fileYM){ [y0,m0]=fileYM; warns.push(`Fila ${fila}: sin fecha de atención; se asigna a ${MESES_L[m0-1]} de ${y0} por el nombre del archivo`); }
     else { errs.push(`Fila ${fila}: fecha de atención vacía o no válida (o nombre el archivo MATRIZ_DUPLA_AAAA_MM)`); return; }
-    if(mi==null){ errs.push(`Fila ${fila}: municipio «${g("municipio")}» no reconocido`); return; }
+    if(mi==null&&!String(g("municipio")||"").trim()&&!String(g("codigo_dane")||"").trim()){ mi=-1; warns.push(`Fila ${fila}: sin municipio; se cuenta en el total departamental como «sin municipio»`); }
+    else if(mi==null){ errs.push(`Fila ${fila}: municipio «${g("municipio")}» no reconocido`); return; }
     const bits=(yes(g("v_psicologica"))?1:0)|(yes(g("v_fisica"))?2:0)|(yes(g("v_sexual"))?4:0)|(yes(g("v_economica"))?8:0)|(yes(g("intento_feminicidio"))?16:0)|(yes(g("feminicidio"))?32:0)|(yes(g("v_intrafamiliar"))?64:0);
     if(!(bits&79)) warns.push(`Fila ${fila}: no tiene ningún tipo de violencia marcado`);
     const og=nrm(g("orientacion_sexual")), gen=nrm(g("identidad_genero"));
     const lgbt=/lesbiana|gay|homosexual|bisexual|otra/.test(og)||/trans|no binaria/.test(gen);
     const pb=(yes(g("victima_conflicto"))?1:0)|(yes(g("lideresa"))?2:0)|(yes(g("migrante"))?4:0)|(yes(g("discapacidad"))?8:0)|(lgbt?16:0);
     const rut=(yes(g("rem_comisaria"))?1:0)|(yes(g("rem_fiscalia"))?2:0)|(yes(g("rem_salud"))?4:0)|(yes(g("rem_policia"))?8:0)|(yes(g("rem_defensoria"))?16:0);
-    let corr=-1; if(MUN[mi].code==="52001"){ for(const col of ["corregimiento","vereda","barrio_vereda_corregimiento"]){ const k=nrm(g(col)); if(k){ corr=D.dup.corr.findIndex(c=>nrm(c)===k); if(corr>=0) break; } } }
+    let corr=-1; if(mi>=0&&MUN[mi].code==="52001"){ for(const col of ["corregimiento","vereda","barrio_vereda_corregimiento"]){ const k=nrm(g(col)); if(k){ corr=D.dup.corr.findIndex(c=>nrm(c)===k); if(corr>=0) break; } } }
     const edad=g("edad"); if(edad!==""&&(+edad<0||+edad>110)) warns.push(`Fila ${fila}: edad fuera de rango`);
     recs.push([mi,y0,m0,dow,cursoOf(edad),bits,idxOf(L,g("lugar_hechos"),NR(L)),idxOf(A,(g("relacion_agresor_victima")||g("agresor")),NR(A)),idxOf(E,g("etnia"),NR(E)),pb,corr,srcI,rut]);
   });

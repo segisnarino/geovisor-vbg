@@ -166,20 +166,22 @@ const cursoOf=e=>e===""||e==null||isNaN(+e)?6:(+e<=5?0:+e<=11?1:+e<=17?2:+e<=28?
 function parseDupla(rows,fileName,D){
   const recs=[],errs=[],warns=[]; const srcName="carga:"+fileName; let srcI=D.src.indexOf(srcName); if(srcI<0){ D.src.push(srcName); srcI=D.src.length-1; }
   const byCode=Object.fromEntries(MUN.map((m,i)=>[m.code,i])), byName=Object.fromEntries(MUN.map((m,i)=>[nrm(m.name),i])); byName["tumaco"]=byCode["52835"];
-  const NR=l=>l.length-1, fm=String(fileName).match(/(20\d{2})[_\-. ]?(0?[1-9]|1[0-2])(?!\d)/), fileYM=fm?[+fm[1],+fm[2]]:null;
+  const NR=l=>l.length-1, fm=String(fileName).match(/(20\d{2})[_\-. ]?(0?[1-9]|1[0-2])(?!\d)/);
+  let fileYM=fm?[+fm[1],+fm[2]]:null; if(!fileYM){ const nm=String(fileName).normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase(); const MN=["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"]; const mi=MN.findIndex(m=>nm.includes(m)||(m==="septiembre"&&nm.includes("setiembre"))); const yy=nm.match(/20\d{2}/); if(mi>=0) fileYM=[yy?+yy[0]:new Date().getFullYear(),mi+1]; }
   const codes=new Set();
   rows.forEach((o0,i)=>{ const o={}; for(const k in o0) o[nrm(k).replace(/ /g,"_")]=o0[k]; const g=k=>o[k]??""; const fila=i+2;
     if(!Object.keys(o).some(k=>!["validacion","codigo_dane","subregion","codigo_caso","anio"].includes(k)&&String(o[k]??"").trim()!=="")) return;
     const f=toDate(g("fecha_atencion")); let mi=byCode[String(g("codigo_dane")).trim()]; if(mi==null) mi=byName[nrm(g("municipio"))];
     let y0,m0,dow=-1; if(f){ y0=f.getFullYear(); m0=f.getMonth()+1; dow=(f.getDay()+6)%7; } else if(fileYM){ [y0,m0]=fileYM; warns.push(`Fila ${fila}: sin fecha; se asigna a ${MESES[m0-1]} de ${y0} por el nombre del archivo`); } else { errs.push(`Fila ${fila}: sin fecha de atención`); return; }
-    if(mi==null){ errs.push(`Fila ${fila}: municipio «${g("municipio")}» no reconocido`); return; }
+    if(mi==null&&!String(g("municipio")||"").trim()&&!String(g("codigo_dane")||"").trim()){ mi=-1; warns.push(`Fila ${fila}: sin municipio; se cuenta en el total departamental como «sin municipio»`); }
+    else if(mi==null){ errs.push(`Fila ${fila}: municipio «${g("municipio")}» no reconocido`); return; }
     const cc=String(g("codigo_caso")).trim(); if(cc){ if(codes.has(cc)) warns.push(`Fila ${fila}: código de caso repetido ${cc}`); codes.add(cc); }
     const v=String(g("validacion")).trim(); if(v&&v!=="OK") warns.push(`Fila ${fila}: la matriz dice «${v}»`);
     const bits=(yes(g("v_psicologica"))?1:0)|(yes(g("v_fisica"))?2:0)|(yes(g("v_sexual"))?4:0)|(yes(g("v_economica"))?8:0)|(yes(g("intento_feminicidio"))?16:0)|(yes(g("feminicidio"))?32:0)|(yes(g("v_intrafamiliar"))?64:0);
     const og=nrm(g("orientacion_sexual")), gen=nrm(g("identidad_genero")), lg=/lesbiana|gay|homosexual|bisexual|otra/.test(og)||/trans|no binaria/.test(gen);
     const pb=(yes(g("victima_conflicto"))?1:0)|(yes(g("lideresa"))?2:0)|(yes(g("migrante"))?4:0)|(yes(g("discapacidad"))?8:0)|(lg?16:0);
     const rut=(yes(g("rem_comisaria"))?1:0)|(yes(g("rem_fiscalia"))?2:0)|(yes(g("rem_salud"))?4:0)|(yes(g("rem_policia"))?8:0)|(yes(g("rem_defensoria"))?16:0);
-    let corr=-1; if(MUN[mi].code==="52001") for(const c of ["corregimiento","vereda","barrio_vereda_corregimiento"]){ const k=nrm(g(c)); if(k){ corr=D.corr.findIndex(x=>nrm(x)===k); if(corr>=0) break; } }
+    let corr=-1; if(mi>=0&&MUN[mi].code==="52001") for(const c of ["corregimiento","vereda","barrio_vereda_corregimiento"]){ const k=nrm(g(c)); if(k){ corr=D.corr.findIndex(x=>nrm(x)===k); if(corr>=0) break; } }
     recs.push([mi,y0,m0,dow,cursoOf(g("edad")),bits,idxOf(D.lugar,g("lugar_hechos"),NR(D.lugar)),idxOf(D.agresor,(g("relacion_agresor_victima")||g("agresor")),NR(D.agresor)),idxOf(D.etnia,g("etnia"),NR(D.etnia)),pb,corr,srcI,rut]);
   });
   return {recs,errs,warns};
@@ -201,7 +203,7 @@ async function runDupla(files){
     D.cobertura={}; for(const y of Object.keys(cov).sort()){ const ms=[...cov[y].m].sort((a,b)=>a-b); D.cobertura[y]=(ms.length?mesesTxt(ms):"sin mes")+(ms.length&&cov[y].sin?", más atenciones sin mes":""); }
     D.n=D.r.length; D.actualizado=new Date().toISOString().slice(0,10);
     DUP_OUT=D; $("#bDupla").disabled=false;
-    const per=[...months].sort().map(k=>{ const rs=all.filter(x=>x[1]*100+x[2]===k), t=b=>rs.filter(x=>x[5]&b).length; return `<tr><td>${MESES[k%100-1]} ${Math.floor(k/100)}</td><td>${rs.length}</td><td>${t(1)}</td><td>${t(2)}</td><td>${t(4)}</td><td>${t(64)}</td><td>${t(16)}</td><td>${new Set(rs.map(x=>x[0])).size}</td></tr>`; }).join("");
+    const per=[...months].sort().map(k=>{ const rs=all.filter(x=>x[1]*100+x[2]===k), t=b=>rs.filter(x=>x[5]&b).length; return `<tr><td>${MESES[k%100-1]} ${Math.floor(k/100)}</td><td>${rs.length}</td><td>${t(1)}</td><td>${t(2)}</td><td>${t(4)}</td><td>${t(64)}</td><td>${t(16)}</td><td>${new Set(rs.filter(x=>x[0]>=0).map(x=>x[0])).size}</td></tr>`; }).join("");
     st.innerHTML=`<p class="okk">Listo para publicar: ${fmt(all.length)} atenciones de ${names.map(esc).join(", ")}.</p>
       <div class="tbl"><table><tr><th>Mes</th><th>Atenciones</th><th>Psicológica</th><th>Física</th><th>Sexual</th><th>Intrafamiliar</th><th>Intento de feminicidio</th><th>Municipios</th></tr>${per}</table></div>
       <p>Total publicado después de la actualización: <b>${fmt(D.r.length)}</b> atenciones (antes ${fmt(before)}; se reemplazaron ${fmt(before-kept.length)} de los mismos meses).</p>`+
